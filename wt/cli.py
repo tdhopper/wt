@@ -11,12 +11,14 @@ from . import config, gitutil, hooks, lock, paths, status, table
 
 def cmd_new(args, cfg, repo_root):
     """Create a new worktree."""
-    branch_name = args.branch
+    # Keep original branch name for folder path
+    folder_branch_name = args.branch
 
-    # Apply auto_prefix if configured
+    # Apply auto_prefix for git branch name
+    git_branch_name = args.branch
     auto_prefix = cfg["branches"]["auto_prefix"]
-    if auto_prefix and not branch_name.startswith(auto_prefix):
-        branch_name = auto_prefix + branch_name
+    if auto_prefix and not git_branch_name.startswith(auto_prefix):
+        git_branch_name = auto_prefix + git_branch_name
 
     # Fetch origin
     print(f"Fetching from origin...", flush=True)
@@ -32,14 +34,14 @@ def cmd_new(args, cfg, repo_root):
         print(f"Error: Source branch '{source_branch}' does not exist", file=sys.stderr)
         sys.exit(1)
 
-    # Check if branch already has a worktree
-    existing_path = gitutil.worktree_path_for_branch(branch_name, repo_root)
+    # Check if branch already has a worktree (using git branch name)
+    existing_path = gitutil.worktree_path_for_branch(git_branch_name, repo_root)
     if existing_path:
-        print(f"Error: Branch '{branch_name}' already has a worktree at: {existing_path}", file=sys.stderr)
+        print(f"Error: Branch '{git_branch_name}' already has a worktree at: {existing_path}", file=sys.stderr)
         sys.exit(1)
 
-    # Resolve worktree path
-    worktree_path = paths.resolve_worktree_path(repo_root, branch_name, source_branch, cfg)
+    # Resolve worktree path (using folder branch name without prefix)
+    worktree_path = paths.resolve_worktree_path(repo_root, folder_branch_name, source_branch, cfg)
 
     # Check if directory exists
     if worktree_path.exists():
@@ -54,24 +56,24 @@ def cmd_new(args, cfg, repo_root):
     # Create parent directories
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Check if branch exists
-    create_branch = not gitutil.branch_exists(branch_name, repo_root)
+    # Check if branch exists (using git branch name)
+    create_branch = not gitutil.branch_exists(git_branch_name, repo_root)
 
-    # Create worktree
-    print(f"Creating worktree for '{branch_name}' at {worktree_path}...", flush=True)
-    gitutil.create_worktree(repo_root, worktree_path, branch_name, source_branch, create_branch)
+    # Create worktree (using git branch name)
+    print(f"Creating worktree for '{git_branch_name}' at {worktree_path}...", flush=True)
+    gitutil.create_worktree(repo_root, worktree_path, git_branch_name, source_branch, create_branch)
 
     # Set upstream tracking if requested
     if args.track:
-        upstream = f"origin/{branch_name}"
+        upstream = f"origin/{git_branch_name}"
         if gitutil.remote_ref_exists(upstream, repo_root):
-            gitutil.set_upstream(worktree_path, branch_name, upstream)
+            gitutil.set_upstream(worktree_path, git_branch_name, upstream)
             print(f"Set upstream to {upstream}", flush=True)
 
-    # Run post-create hooks
+    # Run post-create hooks (use git branch name in context)
     wt_root = paths.resolve_worktree_root(repo_root, cfg)
     context = paths.build_template_context(
-        repo_root, wt_root, branch_name, source_branch, worktree_path
+        repo_root, wt_root, git_branch_name, source_branch, worktree_path
     )
 
     local_config_path = config.get_local_config_path(repo_root)

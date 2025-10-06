@@ -44,7 +44,7 @@ def default_wt_root(repo_root: Path) -> Path:
     """
     Compute default worktree root.
 
-    Returns a hidden sibling directory: <parent>/.{repo_name}-worktrees
+    Returns a sibling directory: <parent>/{repo_name}-worktrees
 
     Args:
         repo_root: Repository root path
@@ -54,7 +54,7 @@ def default_wt_root(repo_root: Path) -> Path:
     """
     repo_name = repo_root.name
     parent = repo_root.parent
-    return parent / f".{repo_name}-worktrees"
+    return parent / f"{repo_name}-worktrees"
 
 
 def render_path_template(template: str, context: dict[str, str], allow_unknown: bool = False) -> Path:

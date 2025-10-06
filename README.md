@@ -40,7 +40,7 @@ wt prune-merged --yes
 
 ```bash
 # Install from source
-pip install -e .
+uv tool install -e .
 
 # Verify installation
 wt doctor
@@ -51,7 +51,7 @@ wt doctor
 ```bash
 # Create a worktree for a new feature branch
 wt new my-feature
-# -> /Users/you/repos/.myproject-worktrees/my-feature
+# -> /Users/you/repos/myproject-worktrees/my-feature
 
 # List all worktrees
 wt list
@@ -81,7 +81,7 @@ wt new login-redesign
 
 This creates a new branch `login-redesign` from `origin/main` and checks it out in a separate directory adjacent to your repo:
 ```
-~/repos/.myproject-worktrees/login-redesign
+~/repos/myproject-worktrees/login-redesign
 ```
 
 ### 2. Work in the worktree
@@ -352,7 +352,7 @@ Configuration uses TOML with precedence: **CLI args > local > global > defaults*
 
 ```toml
 [paths]
-worktree_root = "$REPO_ROOT/../.$REPO_NAME-worktrees"
+worktree_root = "$REPO_ROOT/../$REPO_NAME-worktrees"
 worktree_path_template = "$WT_ROOT/$BRANCH_NAME"
 
 [branches]
@@ -379,9 +379,9 @@ json_indent = 2
 
 ### Default Behavior
 
-- **Worktree location:** Hidden sibling directory to your repo
+- **Worktree location:** Sibling directory to your repo
   - Repo at `/Users/alice/repos/myproject`
-  - Worktrees at `/Users/alice/repos/.myproject-worktrees/`
+  - Worktrees at `/Users/alice/repos/myproject-worktrees/`
 - **Base branch:** `origin/main`
 - **Update strategy:** `rebase`
 - **Protected branches:** `["main"]`
@@ -395,7 +395,7 @@ json_indent = 2
 ```
 ~/repos/
 ├── myproject/              # Main repo (bare worktree)
-└── .myproject-worktrees/   # Managed by wt
+└── myproject-worktrees/    # Managed by wt
     ├── feature-a/          # Worktree for feature-a branch
     ├── feature-b/          # Worktree for feature-b branch
     └── hotfix/             # Worktree for hotfix branch
