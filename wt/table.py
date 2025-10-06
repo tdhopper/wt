@@ -3,6 +3,34 @@
 from typing import Any
 
 
+# ANSI color codes
+class Color:
+    """ANSI color codes for terminal output."""
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+
+    # Foreground colors
+    RED = "\033[31m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"
+    MAGENTA = "\033[35m"
+    CYAN = "\033[36m"
+    WHITE = "\033[37m"
+
+    # Bright variants
+    BRIGHT_RED = "\033[91m"
+    BRIGHT_GREEN = "\033[92m"
+    BRIGHT_YELLOW = "\033[93m"
+    BRIGHT_CYAN = "\033[96m"
+
+
+def colorize(text: str, color: str) -> str:
+    """Wrap text in ANSI color codes."""
+    return f"{color}{text}{Color.RESET}"
+
+
 def format_table(headers: list[str], rows: list[list[Any]], rich: bool = False) -> str:
     """
     Format data as a table.
@@ -10,7 +38,7 @@ def format_table(headers: list[str], rows: list[list[Any]], rich: bool = False) 
     Args:
         headers: Column headers
         rows: Data rows
-        rich: If True, use box-drawing characters (basic implementation)
+        rich: If True, use colors (box-drawing removed)
 
     Returns:
         Formatted table string
@@ -18,76 +46,56 @@ def format_table(headers: list[str], rows: list[list[Any]], rich: bool = False) 
     if not rows:
         return ""
 
-    # Convert all cells to strings
+    # Convert all cells to strings, but strip ANSI codes for width calculation
     str_rows = [[str(cell) for cell in row] for row in rows]
     str_headers = [str(h) for h in headers]
 
-    # Calculate column widths
-    col_widths = [len(h) for h in str_headers]
+    # Calculate column widths (strip ANSI codes for accurate width)
+    col_widths = [_visible_len(h) for h in str_headers]
     for row in str_rows:
         for i, cell in enumerate(row):
-            col_widths[i] = max(col_widths[i], len(cell))
+            col_widths[i] = max(col_widths[i], _visible_len(cell))
 
     # Build table
     lines = []
 
-    if rich:
-        # Top border
-        lines.append(_format_border(col_widths, "top"))
+    # Headers
+    lines.append(_format_row(str_headers, col_widths))
 
-        # Headers
-        lines.append(_format_row(str_headers, col_widths, rich=True))
+    # Separator
+    lines.append(_format_separator(col_widths))
 
-        # Header separator
-        lines.append(_format_border(col_widths, "middle"))
-
-        # Rows
-        for row in str_rows:
-            lines.append(_format_row(row, col_widths, rich=True))
-
-        # Bottom border
-        lines.append(_format_border(col_widths, "bottom"))
-    else:
-        # Simple format
-        # Headers
-        lines.append(_format_row(str_headers, col_widths, rich=False))
-
-        # Separator
-        lines.append(_format_separator(col_widths))
-
-        # Rows
-        for row in str_rows:
-            lines.append(_format_row(row, col_widths, rich=False))
+    # Rows
+    for row in str_rows:
+        lines.append(_format_row(row, col_widths))
 
     return "\n".join(lines)
 
 
-def _format_row(cells: list[str], widths: list[int], rich: bool) -> str:
+def _visible_len(text: str) -> int:
+    """Calculate visible length of text, excluding ANSI codes."""
+    import re
+    # Remove ANSI escape sequences
+    ansi_escape = re.compile(r'\033\[[0-9;]*m')
+    return len(ansi_escape.sub('', text))
+
+
+def _pad_with_ansi(text: str, width: int) -> str:
+    """Pad text to width, accounting for ANSI codes."""
+    visible = _visible_len(text)
+    padding = width - visible
+    return text + (' ' * padding)
+
+
+def _format_row(cells: list[str], widths: list[int]) -> str:
     """Format a single row."""
-    if rich:
-        padded = [cell.ljust(width) for cell, width in zip(cells, widths)]
-        return "│ " + " │ ".join(padded) + " │"
-    else:
-        padded = [cell.ljust(width) for cell, width in zip(cells, widths)]
-        return "  ".join(padded)
+    padded = [_pad_with_ansi(cell, width) for cell, width in zip(cells, widths)]
+    return "  ".join(padded)
 
 
 def _format_separator(widths: list[int]) -> str:
     """Format a simple separator line."""
     return "  ".join(["-" * width for width in widths])
-
-
-def _format_border(widths: list[int], position: str) -> str:
-    """Format a box-drawing border."""
-    if position == "top":
-        left, mid, right, fill = "┌", "┬", "┐", "─"
-    elif position == "middle":
-        left, mid, right, fill = "├", "┼", "┤", "─"
-    else:  # bottom
-        left, mid, right, fill = "└", "┴", "┘", "─"
-
-    segments = [fill * (width + 2) for width in widths]
-    return left + mid.join(segments) + right
 
 
 def print_status_table(statuses: list[Any], rich: bool = False) -> None:
@@ -96,24 +104,70 @@ def print_status_table(statuses: list[Any], rich: bool = False) -> None:
 
     Args:
         statuses: List of WorktreeStatus objects
-        rich: If True, use rich formatting
+        rich: If True, use rich formatting with colors
     """
     if not statuses:
         print("No worktrees found.")
         return
 
     headers = ["Branch", "Path", "SHA", "Dirty", "Ahead", "Behind", "Behind Main"]
-    rows = []
 
+    if rich:
+        # Bold headers
+        headers = [colorize(h, Color.BOLD) for h in headers]
+
+    rows = []
     for status in statuses:
+        # Branch name - cyan for normal, yellow for detached, green if clean and current
+        branch_name = status.branch or "(detached)"
+        if rich:
+            if status.branch:
+                # Green if clean and up-to-date, cyan otherwise
+                if not status.is_dirty and status.ahead == 0 and status.behind == 0 and status.behind_main == 0:
+                    branch_name = colorize(branch_name, Color.BRIGHT_GREEN)
+                else:
+                    branch_name = colorize(branch_name, Color.CYAN)
+            else:
+                branch_name = colorize("(detached)", Color.YELLOW)
+
+        # Path - dimmed to reduce visual noise
+        path_str = str(status.path)
+        if rich:
+            path_str = colorize(path_str, Color.DIM)
+
+        # SHA - dimmed cyan
+        sha_str = status.sha_short
+        if rich:
+            sha_str = colorize(sha_str, Color.DIM + Color.CYAN)
+
+        # Dirty - red checkmark if dirty
+        dirty_str = "✓" if status.is_dirty else ""
+        if rich and dirty_str:
+            dirty_str = colorize(dirty_str, Color.BRIGHT_RED)
+
+        # Ahead - green if ahead
+        ahead_str = f"+{status.ahead}" if status.ahead > 0 else ""
+        if rich and ahead_str:
+            ahead_str = colorize(ahead_str, Color.BRIGHT_GREEN)
+
+        # Behind - red if behind
+        behind_str = f"-{status.behind}" if status.behind > 0 else ""
+        if rich and behind_str:
+            behind_str = colorize(behind_str, Color.BRIGHT_RED)
+
+        # Behind main - yellow if behind
+        behind_main_str = f"-{status.behind_main}" if status.behind_main > 0 else ""
+        if rich and behind_main_str:
+            behind_main_str = colorize(behind_main_str, Color.YELLOW)
+
         rows.append([
-            status.branch or "(detached)",
-            str(status.path),
-            status.sha_short,
-            "✓" if status.is_dirty else "",
-            f"+{status.ahead}" if status.ahead > 0 else "",
-            f"-{status.behind}" if status.behind > 0 else "",
-            f"-{status.behind_main}" if status.behind_main > 0 else "",
+            branch_name,
+            path_str,
+            sha_str,
+            dirty_str,
+            ahead_str,
+            behind_str,
+            behind_main_str,
         ])
 
     print(format_table(headers, rows, rich=rich))
@@ -125,24 +179,51 @@ def print_list_table(worktrees: list[Any], rich: bool = False) -> None:
 
     Args:
         worktrees: List of WorktreeInfo objects
-        rich: If True, use rich formatting
+        rich: If True, use rich formatting with colors
     """
     if not worktrees:
         print("No worktrees found.")
         return
 
     headers = ["Branch", "Path", "SHA", "Locked"]
-    rows = []
 
+    if rich:
+        # Bold headers
+        headers = [colorize(h, Color.BOLD) for h in headers]
+
+    rows = []
     for wt in worktrees:
         if wt.is_bare:
             continue
 
+        # Branch name - cyan for normal, yellow for detached
+        branch_name = wt.branch or "(detached)"
+        if rich:
+            if wt.branch:
+                branch_name = colorize(branch_name, Color.CYAN)
+            else:
+                branch_name = colorize("(detached)", Color.YELLOW)
+
+        # Path - dimmed
+        path_str = str(wt.path)
+        if rich:
+            path_str = colorize(path_str, Color.DIM)
+
+        # SHA - dimmed cyan
+        sha_str = wt.sha[:7] if len(wt.sha) > 7 else wt.sha
+        if rich:
+            sha_str = colorize(sha_str, Color.DIM + Color.CYAN)
+
+        # Locked - red if locked
+        locked_str = wt.locked or ""
+        if rich and locked_str:
+            locked_str = colorize(locked_str, Color.BRIGHT_RED)
+
         rows.append([
-            wt.branch or "(detached)",
-            str(wt.path),
-            wt.sha[:7] if len(wt.sha) > 7 else wt.sha,
-            wt.locked or "",
+            branch_name,
+            path_str,
+            sha_str,
+            locked_str,
         ])
 
     print(format_table(headers, rows, rich=rich))
