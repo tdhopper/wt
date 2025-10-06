@@ -33,6 +33,11 @@ def get_default_config() -> dict[str, Any]:
             "rich": False,
             "json_indent": 2,
         },
+        "vscode": {
+            "create_settings": False,
+            "color_borders": True,
+            "custom_title": True,
+        },
     }
 
 

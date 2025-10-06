@@ -54,6 +54,7 @@ wt/
   status.py    # Aggregate worktree status (dirty, ahead/behind tracking)
   table.py     # Simple table formatting with box-drawing (stdlib only)
   lock.py      # Repo-scoped advisory lock (fcntl on Unix, PID file on Windows)
+  vscode.py    # VS Code settings generation for worktree visual distinction
 ```
 
 **Key modules:**
@@ -63,6 +64,7 @@ wt/
 - `paths.py` - Exports `discover_repo_root()`, `resolve_worktree_path()`, `build_template_context()`, `render_path_template()`
 - `hooks.py` - Exports `run_post_create_hooks()` which handles discovery, env setup, and execution
 - `lock.py` - `RepoLock` context manager for safe concurrent operations
+- `vscode.py` - Exports `create_vscode_settings()` and `generate_branch_color()` for VS Code workspace customization
 
 ### Configuration System
 
@@ -74,10 +76,11 @@ Key sections:
 - `[hooks]`: `post_create_dir`, `continue_on_error`, `timeout_seconds`
 - `[update]`: `base`, `strategy` (rebase/merge/ff-only), `auto_stash`
 - `[prune]`: `protected` branches list, `delete_branch_with_worktree`
+- `[vscode]`: `create_settings`, `color_borders`, `custom_title` for workspace customization
 
 ### Path Resolution & Templates
 
-- Default worktree root: `<parent(repo_root)>/.<repo_name>-worktrees` (hidden sibling)
+- Default worktree root: `<parent(repo_root)>/<repo_name>-worktrees` (sibling directory)
 - Template variables: `$REPO_ROOT`, `$REPO_NAME`, `$WT_ROOT`, `$BRANCH_NAME`, `$SOURCE_BRANCH`, `$WORKTREE_PATH`, `$DATE_ISO`, `$TIME_ISO`
 - Template rendering uses simple `$VARNAME` substitution (no eval)
 - Branch names with slashes create nested directories
@@ -115,8 +118,9 @@ Timeout enforcement via `timeout_seconds` config
 2. Fetch origin, resolve source branch (default `origin/main`)
 3. Render path template, create parent dirs
 4. Create branch (if needed) and worktree via `git worktree add`
-5. Run post-create hooks in new worktree
-6. Print resulting path
+5. Create VS Code settings if `vscode.create_settings` is enabled
+6. Run post-create hooks in new worktree
+7. Print resulting path
 
 ### `wt status`
 For each worktree:

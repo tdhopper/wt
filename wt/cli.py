@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import config, gitutil, hooks, lock, paths, status, table
+from . import config, gitutil, hooks, lock, paths, status, table, vscode
 
 
 def cmd_new(args, cfg, repo_root):
@@ -78,6 +78,9 @@ def cmd_new(args, cfg, repo_root):
 
     local_config_path = config.get_local_config_path(repo_root)
     global_config_path = config.get_global_config_path()
+
+    # Create VS Code settings if enabled
+    vscode.create_vscode_settings(worktree_path, git_branch_name, repo_root.name, cfg)
 
     try:
         hooks.run_post_create_hooks(

@@ -8,3 +8,12 @@ dependencies = []
 
 [project.scripts]
 wt = "wt.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+]

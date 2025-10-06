@@ -218,6 +218,25 @@ cd $(wt where my-feature)
 code $(wt where my-feature)
 ```
 
+### Make VS Code windows visually distinct
+
+Enable automatic creation of VS Code settings to make each worktree window unique:
+
+```toml
+[vscode]
+create_settings = true
+color_borders = true     # Deterministic colored borders per branch
+custom_title = true      # Show repo name + branch in title bar
+```
+
+When enabled, `wt new` creates `.vscode/settings.json` with:
+- **Colored window borders** - Each branch gets a unique color (generated from branch name hash)
+- **Custom window title** - Shows `{repo_name} | {branch_name}` instead of just the path
+
+This makes it easy to visually distinguish between multiple VS Code windows when working across worktrees.
+
+**Note:** Settings are only created if `.vscode/settings.json` doesn't already exist, so existing customizations are preserved.
+
 ---
 
 ## Command Reference
@@ -375,6 +394,11 @@ delete_branch_with_worktree = false
 [ui]
 rich = false
 json_indent = 2
+
+[vscode]
+create_settings = false
+color_borders = true
+custom_title = true
 ```
 
 ### Default Behavior
