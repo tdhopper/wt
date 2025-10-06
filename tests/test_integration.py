@@ -13,7 +13,9 @@ def run_wt(args: list[str], cwd: Path, fake_home: Path, **kwargs):
     """Run wt command with isolated environment (no global config/hooks)."""
     env = os.environ.copy()
     env["HOME"] = str(fake_home)
-    return subprocess.run([sys.executable, "-m", "wt.cli"] + args, cwd=cwd, env=env, **kwargs)
+    return subprocess.run(
+        [sys.executable, "-m", "wt.cli", *args], cwd=cwd, env=env, check=False, **kwargs
+    )
 
 
 @pytest.fixture
@@ -106,7 +108,8 @@ def test_status_shows_dirty_worktrees(git_repo):
             wt_path = Path(wt["path"])
             break
 
-    assert wt_path and wt_path.exists(), f"Worktree path not found. Got: {list_result.stdout}"
+    assert wt_path is not None, f"Worktree path not found. Got: {list_result.stdout}"
+    assert wt_path.exists(), f"Worktree path does not exist: {wt_path}"
 
     # Make it dirty
     (wt_path / "test.txt").write_text("dirty")
@@ -226,9 +229,8 @@ def test_new_worktree_with_existing_branch_not_detached(git_repo):
             wt_path = Path(wt["path"])
             break
 
-    assert (
-        wt_path and wt_path.exists()
-    ), f"Worktree not found for existing-branch. Got: {list_result.stdout}"
+    assert wt_path is not None, f"Worktree not found for existing-branch. Got: {list_result.stdout}"
+    assert wt_path.exists(), f"Worktree path does not exist: {wt_path}"
 
     # Verify it's on the branch, not detached
     status_result = subprocess.run(
@@ -236,6 +238,10 @@ def test_new_worktree_with_existing_branch_not_detached(git_repo):
     )
 
     # Should NOT say "Not currently on any branch" (detached)
-    assert "Not currently on any branch" not in status_result.stdout, "Worktree is detached HEAD, should be on existing-branch"
+    assert (
+        "Not currently on any branch" not in status_result.stdout
+    ), "Worktree is detached HEAD, should be on existing-branch"
     # The branch name might have a prefix from config, so just check it contains "existing-branch"
-    assert "existing-branch" in status_result.stdout, f"Worktree should be on existing-branch, got: {status_result.stdout}"
+    assert (
+        "existing-branch" in status_result.stdout
+    ), f"Worktree should be on existing-branch, got: {status_result.stdout}"

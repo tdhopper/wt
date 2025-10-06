@@ -62,9 +62,10 @@ def branch_exists(name: str, cwd: Path) -> bool:
     """
     try:
         git("rev-parse", "--verify", name, cwd=cwd)
-        return True
     except GitError:
         return False
+    else:
+        return True
 
 
 def remote_ref_exists(name: str, cwd: Path) -> bool:
@@ -80,9 +81,10 @@ def remote_ref_exists(name: str, cwd: Path) -> bool:
     """
     try:
         git("rev-parse", "--verify", name, cwd=cwd)
-        return True
     except GitError:
         return False
+    else:
+        return True
 
 
 def get_default_branch(cwd: Path, remote: str = "origin") -> str:

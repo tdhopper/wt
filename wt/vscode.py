@@ -117,6 +117,6 @@ def create_vscode_settings(
     # Create directory and write settings
     vscode_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(settings_file, "w") as f:
+    with settings_file.open("w") as f:
         json.dump(settings, f, indent=2)
         f.write("\n")  # Add trailing newline

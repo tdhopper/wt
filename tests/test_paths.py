@@ -1,7 +1,5 @@
 """Path template tests - only the failure modes that matter."""
 
-from pathlib import Path
-
 import pytest
 
 from wt.paths import build_template_context, render_path_template
@@ -14,10 +12,7 @@ def test_template_renders_all_variables(tmp_path):
     wt_root = tmp_path / "wt"
 
     context = build_template_context(
-        repo_root=repo_root,
-        wt_root=wt_root,
-        branch_name="feature-x",
-        source_branch="main"
+        repo_root=repo_root, wt_root=wt_root, branch_name="feature-x", source_branch="main"
     )
 
     # Test a sensible template (don't concatenate multiple absolute paths)

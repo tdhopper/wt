@@ -67,11 +67,11 @@ class RepoLock:
         except FileNotFoundError as e:
             raise LockError("git command not found") from e
 
-    def acquire(self, timeout: int = 10) -> None:
+    def acquire(self, _timeout: int = 10) -> None:
         """Acquire the lock.
 
         Args:
-            timeout: Timeout in seconds (unused on Unix with fcntl)
+            _timeout: Timeout in seconds (unused on Unix with fcntl)
 
         Raises:
             LockError: If lock cannot be acquired
@@ -79,7 +79,7 @@ class RepoLock:
         """
         # Create lock file
         try:
-            self.lock_file = open(self.lock_path, "a")  # noqa: SIM115
+            self.lock_file = self.lock_path.open("a")
         except OSError as e:
             raise LockError(f"Cannot create lock file at {self.lock_path}: {e}") from e
 
@@ -130,19 +130,20 @@ class RepoLock:
                 # Write our PID
                 self.lock_file.write(str(pid))
                 self.lock_file.flush()
-                return
 
             except (ValueError, OSError) as e:
                 if attempt == max_attempts - 1:
                     raise LockError(f"Could not acquire lock: {e}") from e
                 time.sleep(0.1)
+            else:
+                return
 
     def _process_exists_windows(self, pid: int) -> bool:
         """Check if process exists on Windows."""
         import ctypes
 
-        PROCESS_QUERY_INFORMATION = 0x0400
-        handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
+        process_query_information = 0x0400
+        handle = ctypes.windll.kernel32.OpenProcess(process_query_information, False, pid)
         if handle:
             ctypes.windll.kernel32.CloseHandle(handle)
             return True

@@ -1,6 +1,6 @@
 """Path discovery and template rendering."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 import subprocess
 
@@ -44,11 +44,12 @@ def discover_repo_root(start: Path | None = None) -> Path:
         # The parent of the common git directory is the main repo root
         # In a regular repo: .git -> repo_root
         # In a worktree: /path/to/main/repo/.git -> main repo_root
-        return git_common_dir.parent
     except subprocess.CalledProcessError as e:
         raise RepoDiscoveryError(f"Not in a git repository: {e.stderr.strip()}") from e
     except FileNotFoundError as e:
         raise RepoDiscoveryError("git command not found") from e
+    else:
+        return git_common_dir.parent
 
 
 def default_wt_root(repo_root: Path) -> Path:
@@ -127,7 +128,7 @@ def build_template_context(
         Dictionary of template variables
 
     """
-    now = datetime.now()
+    now = datetime.now(UTC)
 
     context = {
         "REPO_ROOT": str(repo_root.absolute()),
@@ -196,6 +197,4 @@ def resolve_worktree_path(
     context = build_template_context(repo_root, wt_root, branch_name, source_branch)
 
     # Render template
-    worktree_path = render_path_template(template, context)
-
-    return worktree_path
+    return render_path_template(template, context)

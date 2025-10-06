@@ -334,7 +334,7 @@ def cmd_open(args, cfg, repo_root):
     cmd_where(args, cfg, repo_root)
 
 
-def cmd_gc(args, cfg, repo_root):
+def cmd_gc(_args, cfg, repo_root):
     """Clean up stale worktrees."""
     print("Pruning stale worktree entries...", flush=True)
     gitutil.prune_worktrees(repo_root)
@@ -361,7 +361,7 @@ def cmd_gc(args, cfg, repo_root):
     print("Done")
 
 
-def cmd_doctor(args, cfg, repo_root):
+def cmd_doctor(_args, cfg, repo_root):  # noqa: PLR0912
     """Check configuration and environment."""
     print("Checking wt configuration and environment...\n")
 
@@ -453,8 +453,8 @@ def cmd_doctor(args, cfg, repo_root):
         print("All checks passed ✓")
 
 
-def main():
-    """Main entry point."""
+def main():  # noqa: PLR0915
+    """CLI entry point."""
     parser = argparse.ArgumentParser(
         description="wt - Zero-friction git worktree manager",
         formatter_class=argparse.RawDescriptionHelpFormatter,

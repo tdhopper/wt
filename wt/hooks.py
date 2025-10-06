@@ -222,7 +222,7 @@ def _run_hook(hook_path: Path, cwd: Path, env: dict[str, str], timeout: int) -> 
         )
 
         if result.returncode != 0:
-            raise HookError(
+            raise HookError(  # noqa: TRY301
                 f"{hook_path.name} exited with code {result.returncode}: {result.stderr.strip()}"
             )
 
@@ -246,6 +246,7 @@ def _command_exists(command: str) -> bool:
             capture_output=True,
             check=True,
         )
-        return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
+    else:
+        return True

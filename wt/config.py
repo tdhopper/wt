@@ -47,7 +47,7 @@ def load_toml_file(path: Path) -> dict[str, Any]:
         return {}
 
     try:
-        with open(path, "rb") as f:
+        with path.open("rb") as f:
             return tomllib.load(f)
     except Exception as e:
         raise RuntimeError(f"Failed to load config from {path}: {e}") from e

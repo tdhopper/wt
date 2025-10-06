@@ -33,13 +33,13 @@ def colorize(text: str, color: str) -> str:
     return f"{color}{text}{Color.RESET}"
 
 
-def format_table(headers: list[str], rows: list[list[Any]], rich: bool = False) -> str:
+def format_table(headers: list[str], rows: list[list[Any]], _rich: bool = False) -> str:
     """Format data as a table.
 
     Args:
         headers: Column headers
         rows: Data rows
-        rich: If True, use colors (box-drawing removed)
+        _rich: If True, use colors (box-drawing removed)
 
     Returns:
         Formatted table string
@@ -103,13 +103,14 @@ def _format_separator(widths: list[int]) -> str:
 
 def _get_dirty_marker() -> str:
     """Get dirty marker that works with current encoding."""
-    encoding = sys.stdout.encoding or 'ascii'
+    encoding = sys.stdout.encoding or "ascii"
     # Try to encode checkmark; fall back to asterisk if it fails
     try:
         "✓".encode(encoding)
-        return "✓"
     except (UnicodeEncodeError, LookupError):
         return "*"
+    else:
+        return "✓"
 
 
 def _safe_print(text: str) -> None:
@@ -118,8 +119,8 @@ def _safe_print(text: str) -> None:
         print(text)
     except UnicodeEncodeError:
         # Fall back to UTF-8 with error handling
-        sys.stdout.buffer.write(text.encode('utf-8', errors='replace'))
-        sys.stdout.buffer.write(b'\n')
+        sys.stdout.buffer.write(text.encode("utf-8", errors="replace"))
+        sys.stdout.buffer.write(b"\n")
 
 
 def print_status_table(statuses: list[Any], rich: bool = False) -> None:
