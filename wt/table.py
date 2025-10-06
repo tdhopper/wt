@@ -1,5 +1,6 @@
 """Simple table formatting using stdlib only."""
 
+import sys
 from typing import Any
 
 
@@ -98,6 +99,27 @@ def _format_separator(widths: list[int]) -> str:
     return "  ".join(["-" * width for width in widths])
 
 
+def _get_dirty_marker() -> str:
+    """Get dirty marker that works with current encoding."""
+    encoding = sys.stdout.encoding or 'ascii'
+    # Try to encode checkmark; fall back to asterisk if it fails
+    try:
+        "✓".encode(encoding)
+        return "✓"
+    except (UnicodeEncodeError, LookupError):
+        return "*"
+
+
+def _safe_print(text: str) -> None:
+    """Print text with encoding fallback for Windows compatibility."""
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        # Fall back to UTF-8 with error handling
+        sys.stdout.buffer.write(text.encode('utf-8', errors='replace'))
+        sys.stdout.buffer.write(b'\n')
+
+
 def print_status_table(statuses: list[Any], rich: bool = False) -> None:
     """
     Print a status table for worktrees.
@@ -115,6 +137,9 @@ def print_status_table(statuses: list[Any], rich: bool = False) -> None:
     if rich:
         # Bold headers
         headers = [colorize(h, Color.BOLD) for h in headers]
+
+    # Choose dirty marker based on encoding support
+    dirty_marker = _get_dirty_marker()
 
     rows = []
     for status in statuses:
@@ -140,8 +165,8 @@ def print_status_table(statuses: list[Any], rich: bool = False) -> None:
         if rich:
             sha_str = colorize(sha_str, Color.DIM + Color.CYAN)
 
-        # Dirty - red checkmark if dirty
-        dirty_str = "✓" if status.is_dirty else ""
+        # Dirty - red marker if dirty
+        dirty_str = dirty_marker if status.is_dirty else ""
         if rich and dirty_str:
             dirty_str = colorize(dirty_str, Color.BRIGHT_RED)
 
@@ -170,7 +195,7 @@ def print_status_table(statuses: list[Any], rich: bool = False) -> None:
             behind_main_str,
         ])
 
-    print(format_table(headers, rows, rich=rich))
+    _safe_print(format_table(headers, rows, rich=rich))
 
 
 def print_list_table(worktrees: list[Any], rich: bool = False) -> None:
@@ -226,4 +251,4 @@ def print_list_table(worktrees: list[Any], rich: bool = False) -> None:
             locked_str,
         ])
 
-    print(format_table(headers, rows, rich=rich))
+    _safe_print(format_table(headers, rows, rich=rich))
