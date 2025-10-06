@@ -85,6 +85,27 @@ def remote_ref_exists(name: str, cwd: Path) -> bool:
         return False
 
 
+def get_default_branch(cwd: Path, remote: str = "origin") -> str:
+    """
+    Detect the default branch (main or master) on the remote.
+
+    Args:
+        cwd: Working directory
+        remote: Remote name (default: "origin")
+
+    Returns:
+        Default branch name with remote prefix (e.g., "origin/main" or "origin/master")
+    """
+    # Check for main first, then fall back to master
+    for branch in ["main", "master"]:
+        ref = f"{remote}/{branch}"
+        if remote_ref_exists(ref, cwd):
+            return ref
+
+    # If neither exists, default to origin/main
+    return f"{remote}/main"
+
+
 def list_worktrees(repo_root: Path) -> list[WorktreeInfo]:
     """
     List all worktrees in the repository.

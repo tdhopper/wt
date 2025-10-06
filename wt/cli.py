@@ -18,11 +18,14 @@ def cmd_new(args, cfg, repo_root):
     if auto_prefix and not branch_name.startswith(auto_prefix):
         branch_name = auto_prefix + branch_name
 
-    source_branch = args.from_branch
-
     # Fetch origin
     print(f"Fetching from origin...", flush=True)
     gitutil.fetch_origin(repo_root)
+
+    # Resolve source branch (auto-detect if default was used)
+    source_branch = args.from_branch
+    if source_branch == "origin/main":
+        source_branch = gitutil.get_default_branch(repo_root)
 
     # Check if source branch exists
     if not gitutil.remote_ref_exists(source_branch, repo_root):
@@ -111,11 +114,14 @@ def cmd_list(args, cfg, repo_root):
 
 def cmd_status(args, cfg, repo_root):
     """Show status of all worktrees."""
-    base_branch = cfg["update"]["base"]
-
     # Fetch for accurate status
     print(f"Fetching from origin...", flush=True)
     gitutil.fetch_origin(repo_root)
+
+    # Resolve base branch (auto-detect if default was used)
+    base_branch = cfg["update"]["base"]
+    if base_branch == "origin/main":
+        base_branch = gitutil.get_default_branch(repo_root)
 
     statuses = status.get_all_worktree_statuses(repo_root, base_branch)
 
@@ -186,12 +192,16 @@ def cmd_rm(args, cfg, repo_root):
 
 def cmd_prune_merged(args, cfg, repo_root):
     """Prune worktrees for merged branches."""
-    base_branch = args.base or cfg["update"]["base"]
-    protected = set(args.protected or cfg["prune"]["protected"])
-
     # Fetch
     print(f"Fetching from origin...", flush=True)
     gitutil.fetch_origin(repo_root)
+
+    # Resolve base branch (auto-detect if default was used)
+    base_branch = args.base or cfg["update"]["base"]
+    if base_branch == "origin/main":
+        base_branch = gitutil.get_default_branch(repo_root)
+
+    protected = set(args.protected or cfg["prune"]["protected"])
 
     # Get merged branches
     merged = gitutil.list_merged_branches(repo_root, base_branch)
@@ -236,13 +246,17 @@ def cmd_prune_merged(args, cfg, repo_root):
 
 def cmd_pull_main(args, cfg, repo_root):
     """Pull main into all worktrees."""
-    base_branch = cfg["update"]["base"]
-    strategy = args.strategy or cfg["update"]["strategy"]
-    auto_stash = args.stash if args.stash is not None else cfg["update"]["auto_stash"]
-
     # Fetch
     print(f"Fetching from origin...", flush=True)
     gitutil.fetch_origin(repo_root)
+
+    # Resolve base branch (auto-detect if default was used)
+    base_branch = cfg["update"]["base"]
+    if base_branch == "origin/main":
+        base_branch = gitutil.get_default_branch(repo_root)
+
+    strategy = args.strategy or cfg["update"]["strategy"]
+    auto_stash = args.stash if args.stash is not None else cfg["update"]["auto_stash"]
 
     # Get all worktrees
     worktrees = gitutil.list_worktrees(repo_root)
