@@ -1,7 +1,7 @@
 """Configuration loading and management."""
 
-import tomllib
 from pathlib import Path
+import tomllib
 from typing import Any
 
 
@@ -79,8 +79,7 @@ def get_local_config_path(repo_root: Path) -> Path:
 def load_config(
     repo_root: Path | None, cli_overrides: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    """
-    Load configuration with precedence: CLI > local > global > defaults.
+    """Load configuration with precedence: CLI > local > global > defaults.
 
     Args:
         repo_root: Repository root path (None if not in a repo)
@@ -88,6 +87,7 @@ def load_config(
 
     Returns:
         Merged configuration dictionary
+
     """
     # Start with defaults
     config = get_default_config()

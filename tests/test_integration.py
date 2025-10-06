@@ -1,10 +1,10 @@
 """Integration tests for wt - tests actual git operations and workflows."""
 
 import os
+from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -188,7 +188,11 @@ def test_doctor_catches_missing_git(tmp_path):
     env["PATH"] = str(tmp_path)  # Empty PATH
 
     result = subprocess.run(
-        [sys.executable, "-m", "wt.cli", "doctor"], capture_output=True, text=True, env=env
+        [sys.executable, "-m", "wt.cli", "doctor"],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
     )
 
     # Should warn about git not found

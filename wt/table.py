@@ -34,8 +34,7 @@ def colorize(text: str, color: str) -> str:
 
 
 def format_table(headers: list[str], rows: list[list[Any]], rich: bool = False) -> str:
-    """
-    Format data as a table.
+    """Format data as a table.
 
     Args:
         headers: Column headers
@@ -44,6 +43,7 @@ def format_table(headers: list[str], rows: list[list[Any]], rich: bool = False) 
 
     Returns:
         Formatted table string
+
     """
     if not rows:
         return ""
@@ -123,12 +123,12 @@ def _safe_print(text: str) -> None:
 
 
 def print_status_table(statuses: list[Any], rich: bool = False) -> None:
-    """
-    Print a status table for worktrees.
+    """Print a status table for worktrees.
 
     Args:
         statuses: List of WorktreeStatus objects
         rich: If True, use rich formatting with colors
+
     """
     if not statuses:
         print("No worktrees found.")
@@ -208,12 +208,12 @@ def print_status_table(statuses: list[Any], rich: bool = False) -> None:
 
 
 def print_list_table(worktrees: list[Any], rich: bool = False) -> None:
-    """
-    Print a list table for worktrees.
+    """Print a list table for worktrees.
 
     Args:
         worktrees: List of WorktreeInfo objects
         rich: If True, use rich formatting with colors
+
     """
     if not worktrees:
         print("No worktrees found.")

@@ -6,8 +6,7 @@ from pathlib import Path
 
 
 def calculate_luminance(hex_color: str) -> float:
-    """
-    Calculate relative luminance of a color.
+    """Calculate relative luminance of a color.
 
     Uses the WCAG formula for relative luminance.
 
@@ -16,6 +15,7 @@ def calculate_luminance(hex_color: str) -> float:
 
     Returns:
         Relative luminance (0.0 to 1.0)
+
     """
     # Convert hex to RGB
     r = int(hex_color[0:2], 16) / 255
@@ -35,8 +35,7 @@ def calculate_luminance(hex_color: str) -> float:
 
 
 def generate_branch_color(branch_name: str) -> str:
-    """
-    Generate a deterministic color from a branch name.
+    """Generate a deterministic color from a branch name.
 
     Uses SHA256 hash to create a consistent 6-character hex color.
 
@@ -45,14 +44,14 @@ def generate_branch_color(branch_name: str) -> str:
 
     Returns:
         6-character hex color string (without #)
+
     """
     hash_obj = hashlib.sha256(branch_name.encode())
     return hash_obj.hexdigest()[:6]
 
 
 def get_contrasting_text_color(bg_color: str) -> str:
-    """
-    Get contrasting text color (white or black) for a background.
+    """Get contrasting text color (white or black) for a background.
 
     Uses WCAG luminance calculation to determine if white or black
     text will have better contrast.
@@ -62,6 +61,7 @@ def get_contrasting_text_color(bg_color: str) -> str:
 
     Returns:
         "#ffffff" for white text or "#000000" for black text
+
     """
     luminance = calculate_luminance(bg_color)
     # Use white text for dark backgrounds, black for light backgrounds
@@ -74,8 +74,7 @@ def create_vscode_settings(
     repo_name: str,
     config: dict,
 ) -> None:
-    """
-    Create .vscode/settings.json in a worktree.
+    """Create .vscode/settings.json in a worktree.
 
     Generates settings that make the VS Code window visually distinct:
     - Colored window borders (deterministic from branch name)
@@ -86,6 +85,7 @@ def create_vscode_settings(
         branch_name: Branch name for this worktree
         repo_name: Repository name
         config: Configuration dictionary
+
     """
     if not config["vscode"]["create_settings"]:
         return

@@ -23,8 +23,7 @@ def get_worktree_status(
     worktree_info: gitutil.WorktreeInfo,
     base_branch: str,
 ) -> WorktreeStatus:
-    """
-    Get detailed status for a worktree.
+    """Get detailed status for a worktree.
 
     Args:
         worktree_info: Basic worktree information
@@ -32,6 +31,7 @@ def get_worktree_status(
 
     Returns:
         WorktreeStatus with detailed information
+
     """
     path = worktree_info.path
 
@@ -63,8 +63,7 @@ def get_all_worktree_statuses(
     repo_root: Path,
     base_branch: str,
 ) -> list[WorktreeStatus]:
-    """
-    Get status for all worktrees.
+    """Get status for all worktrees.
 
     Args:
         repo_root: Repository root path
@@ -72,6 +71,7 @@ def get_all_worktree_statuses(
 
     Returns:
         List of WorktreeStatus objects
+
     """
     worktrees = gitutil.list_worktrees(repo_root)
     statuses = []

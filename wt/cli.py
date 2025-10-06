@@ -3,8 +3,8 @@
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
+import sys
 
 from . import config, gitutil, hooks, lock, paths, status, table, vscode
 

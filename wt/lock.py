@@ -2,9 +2,9 @@
 
 import contextlib
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 from typing import TextIO
 
 
@@ -13,18 +13,17 @@ class LockError(Exception):
 
 
 class RepoLock:
-    """
-    Advisory lock for a git repository.
+    """Advisory lock for a git repository.
 
     Uses fcntl on Unix systems, PID file fallback on Windows.
     """
 
     def __init__(self, repo_root: Path):
-        """
-        Initialize repo lock.
+        """Initialize repo lock.
 
         Args:
             repo_root: Repository root path
+
         """
         self.repo_root = repo_root
         self.lock_path = self._get_lock_path(repo_root)
@@ -32,8 +31,7 @@ class RepoLock:
         self.acquired = False
 
     def _get_lock_path(self, repo_root: Path) -> Path:
-        """
-        Get the lock file path, handling both regular repos and worktrees.
+        """Get the lock file path, handling both regular repos and worktrees.
 
         Args:
             repo_root: Repository root path
@@ -43,6 +41,7 @@ class RepoLock:
 
         Raises:
             LockError: If git common directory cannot be found
+
         """
         try:
             # Use --git-common-dir to get the main .git directory
@@ -69,14 +68,14 @@ class RepoLock:
             raise LockError("git command not found") from e
 
     def acquire(self, timeout: int = 10) -> None:
-        """
-        Acquire the lock.
+        """Acquire the lock.
 
         Args:
             timeout: Timeout in seconds (unused on Unix with fcntl)
 
         Raises:
             LockError: If lock cannot be acquired
+
         """
         # Create lock file
         try:

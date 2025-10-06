@@ -1,7 +1,7 @@
 """Git command wrappers using subprocess."""
 
-import subprocess
 from pathlib import Path
+import subprocess
 from typing import NamedTuple
 
 
@@ -20,8 +20,7 @@ class WorktreeInfo(NamedTuple):
 
 
 def git(*args: str, cwd: Path, check: bool = True) -> str:
-    """
-    Run a git command and return stdout.
+    """Run a git command and return stdout.
 
     Args:
         *args: Git command arguments
@@ -33,6 +32,7 @@ def git(*args: str, cwd: Path, check: bool = True) -> str:
 
     Raises:
         GitError: If command fails and check=True
+
     """
     try:
         result = subprocess.run(
@@ -50,8 +50,7 @@ def git(*args: str, cwd: Path, check: bool = True) -> str:
 
 
 def branch_exists(name: str, cwd: Path) -> bool:
-    """
-    Check if a branch exists.
+    """Check if a branch exists.
 
     Args:
         name: Branch name
@@ -59,6 +58,7 @@ def branch_exists(name: str, cwd: Path) -> bool:
 
     Returns:
         True if branch exists
+
     """
     try:
         git("rev-parse", "--verify", name, cwd=cwd)
@@ -68,8 +68,7 @@ def branch_exists(name: str, cwd: Path) -> bool:
 
 
 def remote_ref_exists(name: str, cwd: Path) -> bool:
-    """
-    Check if a remote ref exists.
+    """Check if a remote ref exists.
 
     Args:
         name: Remote ref name (e.g., "origin/main")
@@ -77,6 +76,7 @@ def remote_ref_exists(name: str, cwd: Path) -> bool:
 
     Returns:
         True if remote ref exists
+
     """
     try:
         git("rev-parse", "--verify", name, cwd=cwd)
@@ -86,8 +86,7 @@ def remote_ref_exists(name: str, cwd: Path) -> bool:
 
 
 def get_default_branch(cwd: Path, remote: str = "origin") -> str:
-    """
-    Detect the default branch (main or master) on the remote.
+    """Detect the default branch (main or master) on the remote.
 
     Args:
         cwd: Working directory
@@ -95,6 +94,7 @@ def get_default_branch(cwd: Path, remote: str = "origin") -> str:
 
     Returns:
         Default branch name with remote prefix (e.g., "origin/main" or "origin/master")
+
     """
     # Check for main first, then fall back to master
     for branch in ["main", "master"]:
@@ -107,14 +107,14 @@ def get_default_branch(cwd: Path, remote: str = "origin") -> str:
 
 
 def list_worktrees(repo_root: Path) -> list[WorktreeInfo]:
-    """
-    List all worktrees in the repository.
+    """List all worktrees in the repository.
 
     Args:
         repo_root: Repository root path
 
     Returns:
         List of WorktreeInfo objects
+
     """
     output = git("worktree", "list", "--porcelain", cwd=repo_root)
 
@@ -168,8 +168,7 @@ def list_worktrees(repo_root: Path) -> list[WorktreeInfo]:
 
 
 def worktree_path_for_branch(branch: str, repo_root: Path) -> Path | None:
-    """
-    Find the worktree path for a given branch.
+    """Find the worktree path for a given branch.
 
     Args:
         branch: Branch name
@@ -177,6 +176,7 @@ def worktree_path_for_branch(branch: str, repo_root: Path) -> Path | None:
 
     Returns:
         Path to worktree, or None if not found
+
     """
     worktrees = list_worktrees(repo_root)
 
@@ -188,28 +188,28 @@ def worktree_path_for_branch(branch: str, repo_root: Path) -> Path | None:
 
 
 def is_dirty(path: Path) -> bool:
-    """
-    Check if a worktree has uncommitted changes.
+    """Check if a worktree has uncommitted changes.
 
     Args:
         path: Worktree path
 
     Returns:
         True if worktree is dirty
+
     """
     output = git("status", "--porcelain", cwd=path)
     return bool(output)
 
 
 def get_upstream_branch(path: Path) -> str | None:
-    """
-    Get the upstream tracking branch.
+    """Get the upstream tracking branch.
 
     Args:
         path: Worktree path
 
     Returns:
         Upstream branch name, or None if not set
+
     """
     try:
         return git("rev-parse", "--abbrev-ref", "@{u}", cwd=path)
@@ -218,14 +218,14 @@ def get_upstream_branch(path: Path) -> str | None:
 
 
 def count_ahead_behind(path: Path) -> tuple[int, int]:
-    """
-    Count commits ahead/behind upstream.
+    """Count commits ahead/behind upstream.
 
     Args:
         path: Worktree path
 
     Returns:
         Tuple of (behind, ahead) counts, or (0, 0) if no upstream
+
     """
     upstream = get_upstream_branch(path)
     if not upstream:
@@ -243,8 +243,7 @@ def count_ahead_behind(path: Path) -> tuple[int, int]:
 
 
 def count_behind_base(path: Path, base: str) -> int:
-    """
-    Count commits behind a base branch.
+    """Count commits behind a base branch.
 
     Args:
         path: Worktree path
@@ -252,6 +251,7 @@ def count_behind_base(path: Path, base: str) -> int:
 
     Returns:
         Number of commits behind
+
     """
     try:
         output = git("rev-list", "--count", f"HEAD..{base}", cwd=path)
@@ -261,8 +261,7 @@ def count_behind_base(path: Path, base: str) -> int:
 
 
 def get_current_sha(path: Path, short: bool = True) -> str:
-    """
-    Get current commit SHA.
+    """Get current commit SHA.
 
     Args:
         path: Worktree path
@@ -270,6 +269,7 @@ def get_current_sha(path: Path, short: bool = True) -> str:
 
     Returns:
         Commit SHA
+
     """
     args = ["rev-parse"]
     if short:
@@ -280,21 +280,20 @@ def get_current_sha(path: Path, short: bool = True) -> str:
 
 
 def fetch_origin(repo_root: Path) -> None:
-    """
-    Fetch from origin with prune.
+    """Fetch from origin with prune.
 
     Args:
         repo_root: Repository root path
 
     Raises:
         GitError: If fetch fails
+
     """
     git("fetch", "origin", "--prune", cwd=repo_root)
 
 
 def list_merged_branches(repo_root: Path, base: str) -> list[str]:
-    """
-    List branches merged into base.
+    """List branches merged into base.
 
     Args:
         repo_root: Repository root path
@@ -302,20 +301,21 @@ def list_merged_branches(repo_root: Path, base: str) -> list[str]:
 
     Returns:
         List of branch names
+
     """
     output = git("branch", "--format=%(refname:short)", f"--merged={base}", cwd=repo_root)
     return [line for line in output.splitlines() if line]
 
 
 def get_current_branch(repo_root: Path) -> str | None:
-    """
-    Get current branch name.
+    """Get current branch name.
 
     Args:
         repo_root: Repository root path
 
     Returns:
         Branch name, or None if detached HEAD
+
     """
     try:
         return git("rev-parse", "--abbrev-ref", "HEAD", cwd=repo_root)
@@ -324,8 +324,7 @@ def get_current_branch(repo_root: Path) -> str | None:
 
 
 def count_unpushed_commits(path: Path, branch: str) -> int:
-    """
-    Count commits not pushed to upstream.
+    """Count commits not pushed to upstream.
 
     Args:
         path: Worktree path
@@ -333,6 +332,7 @@ def count_unpushed_commits(path: Path, branch: str) -> int:
 
     Returns:
         Number of unpushed commits, or 0 if no upstream
+
     """
     upstream = get_upstream_branch(path)
     if not upstream:
@@ -352,8 +352,7 @@ def create_worktree(
     source: str,
     create_branch: bool = True,
 ) -> None:
-    """
-    Create a new worktree.
+    """Create a new worktree.
 
     Args:
         repo_root: Repository root path
@@ -364,6 +363,7 @@ def create_worktree(
 
     Raises:
         GitError: If worktree creation fails
+
     """
     args = ["worktree", "add"]
 
@@ -378,8 +378,7 @@ def create_worktree(
 
 
 def remove_worktree(repo_root: Path, path: Path, force: bool = False) -> None:
-    """
-    Remove a worktree.
+    """Remove a worktree.
 
     Args:
         repo_root: Repository root path
@@ -388,6 +387,7 @@ def remove_worktree(repo_root: Path, path: Path, force: bool = False) -> None:
 
     Raises:
         GitError: If worktree removal fails
+
     """
     args = ["worktree", "remove"]
 
@@ -400,8 +400,7 @@ def remove_worktree(repo_root: Path, path: Path, force: bool = False) -> None:
 
 
 def delete_branch(repo_root: Path, branch: str, force: bool = False) -> None:
-    """
-    Delete a branch.
+    """Delete a branch.
 
     Args:
         repo_root: Repository root path
@@ -410,27 +409,27 @@ def delete_branch(repo_root: Path, branch: str, force: bool = False) -> None:
 
     Raises:
         GitError: If branch deletion fails
+
     """
     flag = "-D" if force else "-d"
     git("branch", flag, branch, cwd=repo_root)
 
 
 def prune_worktrees(repo_root: Path) -> None:
-    """
-    Prune stale worktree entries.
+    """Prune stale worktree entries.
 
     Args:
         repo_root: Repository root path
 
     Raises:
         GitError: If prune fails
+
     """
     git("worktree", "prune", cwd=repo_root)
 
 
 def set_upstream(path: Path, branch: str, upstream: str) -> None:
-    """
-    Set upstream tracking branch.
+    """Set upstream tracking branch.
 
     Args:
         path: Worktree path
@@ -439,6 +438,7 @@ def set_upstream(path: Path, branch: str, upstream: str) -> None:
 
     Raises:
         GitError: If setting upstream fails
+
     """
     git("branch", "-u", upstream, branch, cwd=path)
 
@@ -448,8 +448,7 @@ def update_with_strategy(
     base: str,
     strategy: str,
 ) -> None:
-    """
-    Update worktree with base using specified strategy.
+    """Update worktree with base using specified strategy.
 
     Args:
         path: Worktree path
@@ -458,6 +457,7 @@ def update_with_strategy(
 
     Raises:
         GitError: If update fails
+
     """
     if strategy == "rebase":
         git("rebase", base, cwd=path)
@@ -470,8 +470,7 @@ def update_with_strategy(
 
 
 def stash_push(path: Path, message: str = "wt-autostash") -> None:
-    """
-    Stash uncommitted changes.
+    """Stash uncommitted changes.
 
     Args:
         path: Worktree path
@@ -479,18 +478,19 @@ def stash_push(path: Path, message: str = "wt-autostash") -> None:
 
     Raises:
         GitError: If stash fails
+
     """
     git("stash", "push", "-u", "-m", message, cwd=path)
 
 
 def stash_pop(path: Path) -> None:
-    """
-    Pop stashed changes.
+    """Pop stashed changes.
 
     Args:
         path: Worktree path
 
     Raises:
         GitError: If stash pop fails
+
     """
     git("stash", "pop", cwd=path)

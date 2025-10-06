@@ -1,8 +1,8 @@
 """Path discovery and template rendering."""
 
-import subprocess
 from datetime import datetime
 from pathlib import Path
+import subprocess
 
 
 class RepoDiscoveryError(Exception):
@@ -10,8 +10,7 @@ class RepoDiscoveryError(Exception):
 
 
 def discover_repo_root(start: Path | None = None) -> Path:
-    """
-    Discover the main git repository root (not worktree root).
+    """Discover the main git repository root (not worktree root).
 
     When run from a worktree, this returns the main repo root, not the worktree path.
 
@@ -23,6 +22,7 @@ def discover_repo_root(start: Path | None = None) -> Path:
 
     Raises:
         RepoDiscoveryError: If not in a git repository
+
     """
     cwd = start or Path.cwd()
 
@@ -52,8 +52,7 @@ def discover_repo_root(start: Path | None = None) -> Path:
 
 
 def default_wt_root(repo_root: Path) -> Path:
-    """
-    Compute default worktree root.
+    """Compute default worktree root.
 
     Returns a sibling directory: <parent>/{repo_name}-worktrees
 
@@ -62,6 +61,7 @@ def default_wt_root(repo_root: Path) -> Path:
 
     Returns:
         Default worktree root path
+
     """
     repo_name = repo_root.name
     parent = repo_root.parent
@@ -71,8 +71,7 @@ def default_wt_root(repo_root: Path) -> Path:
 def render_path_template(
     template: str, context: dict[str, str], allow_unknown: bool = False
 ) -> Path:
-    """
-    Render a path template with variable substitution.
+    """Render a path template with variable substitution.
 
     Supports simple $VARNAME expansion (no eval).
 
@@ -86,6 +85,7 @@ def render_path_template(
 
     Raises:
         ValueError: If template contains unknown variables and allow_unknown is False
+
     """
     result = template
 
@@ -114,8 +114,7 @@ def build_template_context(
     source_branch: str,
     worktree_path: Path | None = None,
 ) -> dict[str, str]:
-    """
-    Build template context dictionary.
+    """Build template context dictionary.
 
     Args:
         repo_root: Repository root path
@@ -126,6 +125,7 @@ def build_template_context(
 
     Returns:
         Dictionary of template variables
+
     """
     now = datetime.now()
 
@@ -146,8 +146,7 @@ def build_template_context(
 
 
 def resolve_worktree_root(repo_root: Path, config: dict) -> Path:
-    """
-    Resolve the worktree root from config.
+    """Resolve the worktree root from config.
 
     Args:
         repo_root: Repository root path
@@ -155,6 +154,7 @@ def resolve_worktree_root(repo_root: Path, config: dict) -> Path:
 
     Returns:
         Worktree root path
+
     """
     wt_root_config = config["paths"]["worktree_root"]
 
@@ -177,8 +177,7 @@ def resolve_worktree_path(
     source_branch: str,
     config: dict,
 ) -> Path:
-    """
-    Resolve the full worktree path for a branch.
+    """Resolve the full worktree path for a branch.
 
     Args:
         repo_root: Repository root path
@@ -188,6 +187,7 @@ def resolve_worktree_path(
 
     Returns:
         Full worktree path
+
     """
     wt_root = resolve_worktree_root(repo_root, config)
     template = config["paths"]["worktree_path_template"]

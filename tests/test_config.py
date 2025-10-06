@@ -1,7 +1,7 @@
 """Config tests - only testing merge logic that could actually break."""
 
-import tempfile
 from pathlib import Path
+import tempfile
 
 from wt.config import load_config, merge_configs
 

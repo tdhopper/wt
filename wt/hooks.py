@@ -1,8 +1,8 @@
 """Hook discovery and execution."""
 
 import os
-import subprocess
 from pathlib import Path
+import subprocess
 
 
 class HookError(Exception):
@@ -14,8 +14,7 @@ def discover_hooks(
     global_config_path: Path,
     hook_dir_name: str,
 ) -> list[Path]:
-    """
-    Discover hook scripts in local and global directories.
+    """Discover hook scripts in local and global directories.
 
     Args:
         local_config_path: Path to local config file (or None)
@@ -24,6 +23,7 @@ def discover_hooks(
 
     Returns:
         List of executable hook paths in execution order (local first, then global)
+
     """
     hooks = []
 
@@ -42,14 +42,14 @@ def discover_hooks(
 
 
 def _collect_executable_hooks(directory: Path) -> list[Path]:
-    """
-    Collect executable files from a directory in lexicographic order.
+    """Collect executable files from a directory in lexicographic order.
 
     Args:
         directory: Directory to scan
 
     Returns:
         List of executable file paths
+
     """
     hooks = []
 
@@ -65,8 +65,7 @@ def find_non_executable_hooks(
     global_config_path: Path,
     hook_dir_name: str,
 ) -> list[Path]:
-    """
-    Find hook files that exist but are not executable.
+    """Find hook files that exist but are not executable.
 
     Args:
         local_config_path: Path to local config file (or None)
@@ -75,6 +74,7 @@ def find_non_executable_hooks(
 
     Returns:
         List of non-executable hook file paths
+
     """
     non_executable = []
 
@@ -93,14 +93,14 @@ def find_non_executable_hooks(
 
 
 def _collect_non_executable_hooks(directory: Path) -> list[Path]:
-    """
-    Collect files that look like hooks but are not executable.
+    """Collect files that look like hooks but are not executable.
 
     Args:
         directory: Directory to scan
 
     Returns:
         List of non-executable hook file paths
+
     """
     non_executable = []
 
@@ -119,14 +119,14 @@ def _collect_non_executable_hooks(directory: Path) -> list[Path]:
 
 
 def build_hook_env(context: dict[str, str]) -> dict[str, str]:
-    """
-    Build environment variables for hook execution.
+    """Build environment variables for hook execution.
 
     Args:
         context: Template context dictionary
 
     Returns:
         Environment dict with WT_* variables
+
     """
     env = os.environ.copy()
 
@@ -144,8 +144,7 @@ def run_post_create_hooks(
     global_config_path: Path,
     config: dict,
 ) -> None:
-    """
-    Run post-create hooks for a new worktree.
+    """Run post-create hooks for a new worktree.
 
     Args:
         worktree_path: Path to the new worktree
@@ -156,6 +155,7 @@ def run_post_create_hooks(
 
     Raises:
         HookError: If a hook fails and continue_on_error is False
+
     """
     hook_dir_name = config["hooks"]["post_create_dir"]
     timeout_seconds = config["hooks"]["timeout_seconds"]
@@ -186,8 +186,7 @@ def run_post_create_hooks(
 
 
 def _run_hook(hook_path: Path, cwd: Path, env: dict[str, str], timeout: int) -> None:
-    """
-    Run a single hook script.
+    """Run a single hook script.
 
     Args:
         hook_path: Path to hook script
@@ -197,6 +196,7 @@ def _run_hook(hook_path: Path, cwd: Path, env: dict[str, str], timeout: int) -> 
 
     Raises:
         HookError: If hook execution fails
+
     """
     # Determine how to run the hook
     if hook_path.suffix == ".sh":
@@ -218,6 +218,7 @@ def _run_hook(hook_path: Path, cwd: Path, env: dict[str, str], timeout: int) -> 
             capture_output=True,
             text=True,
             timeout=timeout,
+            check=False,
         )
 
         if result.returncode != 0:
