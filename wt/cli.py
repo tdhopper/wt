@@ -458,7 +458,7 @@ def main():
     # status
     parser_status = subparsers.add_parser("status", help="Show worktree status")
     parser_status.add_argument("--json", action="store_true", help="Output as JSON")
-    parser_status.add_argument("--rich", action="store_true", help="Use rich formatting")
+    parser_status.add_argument("--rich", action="store_true", default=None, help="Use rich formatting")
 
     # rm
     parser_rm = subparsers.add_parser("rm", help="Remove a worktree")
