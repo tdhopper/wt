@@ -9,12 +9,12 @@ import tempfile
 import pytest
 
 
-def run_wt(args: list[str], cwd: Path, fake_home: Path, **kwargs):
+def run_wt(args: list[str], cwd: Path, fake_home: Path, check=False, **kwargs):
     """Run wt command with isolated environment (no global config/hooks)."""
     env = os.environ.copy()
     env["HOME"] = str(fake_home)
     return subprocess.run(
-        [sys.executable, "-m", "wt.cli", *args], cwd=cwd, env=env, check=False, **kwargs
+        [sys.executable, "-m", "wt.cli", *args], cwd=cwd, env=env, check=check, **kwargs
     )
 
 

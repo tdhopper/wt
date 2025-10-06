@@ -205,7 +205,7 @@ def print_status_table(statuses: list[Any], rich: bool = False) -> None:
             ]
         )
 
-    _safe_print(format_table(headers, rows, rich=rich))
+    _safe_print(format_table(headers, rows, _rich=rich))
 
 
 def print_list_table(worktrees: list[Any], rich: bool = False) -> None:
@@ -263,4 +263,4 @@ def print_list_table(worktrees: list[Any], rich: bool = False) -> None:
             ]
         )
 
-    _safe_print(format_table(headers, rows, rich=rich))
+    _safe_print(format_table(headers, rows, _rich=rich))
