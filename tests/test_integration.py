@@ -9,12 +9,26 @@ import shutil
 import pytest
 
 
+def run_wt(args: list[str], cwd: Path, fake_home: Path, **kwargs):
+    """Run wt command with isolated environment (no global config/hooks)."""
+    env = os.environ.copy()
+    env["HOME"] = str(fake_home)
+    return subprocess.run(
+        [sys.executable, "-m", "wt.cli"] + args,
+        cwd=cwd,
+        env=env,
+        **kwargs
+    )
+
+
 @pytest.fixture
 def git_repo():
     """Create a real git repo with a remote for testing."""
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = Path(tmpdir) / "test-repo"
         remote = Path(tmpdir) / "remote.git"
+        fake_home = Path(tmpdir) / "fake-home"
+        fake_home.mkdir()
 
         # Create bare remote
         remote.mkdir()
@@ -34,19 +48,15 @@ def git_repo():
         subprocess.run(["git", "branch", "-M", "main"], cwd=repo, check=True, capture_output=True)
         subprocess.run(["git", "push", "-u", "origin", "main"], cwd=repo, check=True, capture_output=True)
 
-        yield {"repo": repo, "remote": remote}
+        yield {"repo": repo, "remote": remote, "fake_home": fake_home}
 
 
 def test_new_worktree_creates_and_tracks(git_repo):
     """The most critical path: creating a new worktree actually works."""
     repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
 
-    result = subprocess.run(
-        [sys.executable, "-m", "wt.cli", "new", "feature-test"],
-        cwd=repo,
-        capture_output=True,
-        text=True
-    )
+    result = run_wt(["new", "feature-test"], repo, fake_home, capture_output=True, text=True)
 
     assert result.returncode == 0, f"Failed: {result.stderr}"
 
@@ -74,18 +84,13 @@ def test_new_worktree_creates_and_tracks(git_repo):
 def test_status_shows_dirty_worktrees(git_repo):
     """Users need to see which worktrees have uncommitted changes."""
     repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
 
     # Create worktree
-    subprocess.run([sys.executable, "-m", "wt.cli", "new", "feature-dirty"], cwd=repo, check=True, capture_output=True)
+    run_wt(["new", "feature-dirty"], repo, fake_home, check=True, capture_output=True)
 
     # Get worktree path from list using JSON output
-    list_result = subprocess.run(
-        [sys.executable, "-m", "wt.cli", "list", "--json"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        check=True
-    )
+    list_result = run_wt(["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True)
 
     import json
     worktrees = json.loads(list_result.stdout)
@@ -100,20 +105,8 @@ def test_status_shows_dirty_worktrees(git_repo):
     # Make it dirty
     (wt_path / "test.txt").write_text("dirty")
 
-    # Check status (don't check=True so we can see errors)
-    status = subprocess.run(
-        [sys.executable, "-m", "wt.cli", "status"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-    )
-
-    # If it failed, show the error
-    if status.returncode != 0:
-        print(f"Status command failed with return code {status.returncode}")
-        print(f"STDOUT: {status.stdout}")
-        print(f"STDERR: {status.stderr}")
-        raise AssertionError(f"wt status failed: {status.stderr}")
+    # Check status
+    status = run_wt(["status"], repo, fake_home, capture_output=True, text=True, check=True)
 
     assert "✓" in status.stdout or "dirty" in status.stdout.lower()
 
@@ -121,14 +114,10 @@ def test_status_shows_dirty_worktrees(git_repo):
 def test_prune_merged_runs_without_error(git_repo):
     """Prune command should run without error."""
     repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
 
     # Just test that prune-merged runs successfully even with no branches to prune
-    result = subprocess.run(
-        [sys.executable, "-m", "wt.cli", "prune-merged", "--yes"],
-        cwd=repo,
-        capture_output=True,
-        text=True
-    )
+    result = run_wt(["prune-merged", "--yes"], repo, fake_home, capture_output=True, text=True)
 
     # Should succeed (either pruned something or found nothing to prune)
     assert result.returncode == 0, f"Prune failed: {result.stderr}"
@@ -138,6 +127,7 @@ def test_prune_merged_runs_without_error(git_repo):
 def test_config_precedence_actually_works(git_repo):
     """Config overrides must work or users will be confused."""
     repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
 
     # Set local config
     config_dir = repo / ".wt"
@@ -149,13 +139,7 @@ auto_prefix = "test/"
 """)
 
     # Create worktree
-    result = subprocess.run(
-        [sys.executable, "-m", "wt.cli", "new", "feature"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        check=True
-    )
+    result = run_wt(["new", "feature"], repo, fake_home, capture_output=True, text=True, check=True)
 
     # Check branch name has prefix
     branches = subprocess.run(
@@ -172,6 +156,7 @@ auto_prefix = "test/"
 def test_path_template_creates_nested_dirs(git_repo):
     """Template paths with slashes must create nested directories."""
     repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
 
     # Set template config
     config_dir = repo / ".wt"
@@ -183,22 +168,10 @@ worktree_path_template = "$WT_ROOT/branches/$BRANCH_NAME"
 """)
 
     # Create worktree with slash in name
-    result = subprocess.run(
-        [sys.executable, "-m", "wt.cli", "new", "feat/nested"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        check=True
-    )
+    result = run_wt(["new", "feat/nested"], repo, fake_home, capture_output=True, text=True, check=True)
 
     # Verify nested path exists
-    list_result = subprocess.run(
-        [sys.executable, "-m", "wt.cli", "list"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        check=True
-    )
+    list_result = run_wt(["list"], repo, fake_home, capture_output=True, text=True, check=True)
 
     assert "branches/feat/nested" in list_result.stdout or "branches\\feat\\nested" in list_result.stdout
 
@@ -223,28 +196,18 @@ def test_doctor_catches_missing_git(tmp_path):
 def test_new_worktree_with_existing_branch_not_detached(git_repo):
     """Regression: creating worktree for existing branch should checkout that branch, not create detached HEAD."""
     repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
 
     # First, create a branch directly with git
     subprocess.run(["git", "branch", "existing-branch"], cwd=repo, check=True, capture_output=True)
 
     # Now create a worktree for this existing branch
-    result = subprocess.run(
-        [sys.executable, "-m", "wt.cli", "new", "existing-branch"],
-        cwd=repo,
-        capture_output=True,
-        text=True
-    )
+    result = run_wt(["new", "existing-branch"], repo, fake_home, capture_output=True, text=True)
 
     assert result.returncode == 0, f"Failed: {result.stderr}"
 
     # Get worktree path
-    list_result = subprocess.run(
-        [sys.executable, "-m", "wt.cli", "list", "--json"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        check=True
-    )
+    list_result = run_wt(["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True)
 
     import json
     worktrees = json.loads(list_result.stdout)

@@ -12,13 +12,15 @@ class RepoDiscoveryError(Exception):
 
 def discover_repo_root(start: Path | None = None) -> Path:
     """
-    Discover the git repository root.
+    Discover the main git repository root (not worktree root).
+
+    When run from a worktree, this returns the main repo root, not the worktree path.
 
     Args:
         start: Starting directory (defaults to current working directory)
 
     Returns:
-        Path to repository root
+        Path to main repository root
 
     Raises:
         RepoDiscoveryError: If not in a git repository
@@ -26,14 +28,24 @@ def discover_repo_root(start: Path | None = None) -> Path:
     cwd = start or Path.cwd()
 
     try:
+        # Get the common git directory (works in both main repo and worktrees)
         result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
+            ["git", "rev-parse", "--git-common-dir"],
             cwd=cwd,
             capture_output=True,
             text=True,
             check=True,
         )
-        return Path(result.stdout.strip())
+        git_common_dir = Path(result.stdout.strip())
+
+        # Make it absolute if it's relative
+        if not git_common_dir.is_absolute():
+            git_common_dir = (cwd / git_common_dir).resolve()
+
+        # The parent of the common git directory is the main repo root
+        # In a regular repo: .git -> repo_root
+        # In a worktree: /path/to/main/repo/.git -> main repo_root
+        return git_common_dir.parent
     except subprocess.CalledProcessError as e:
         raise RepoDiscoveryError(f"Not in a git repository: {e.stderr.strip()}")
     except FileNotFoundError:
