@@ -186,6 +186,9 @@ wt hooks init --template
 wt hooks init --local --template
 ```
 
+> [!TIP]
+> See **[examples/hooks/](examples/hooks/)** for ready-to-use hook examples including npm install, Python venv setup, VS Code integration, Docker Compose, and more. Copy them to your hooks directory to get started quickly.
+
 **Example: Install dependencies automatically**
 
 Create a hook file at `~/repos/myproject/.wt/hooks/post_create.d/01-install.sh`:
@@ -405,49 +408,51 @@ echo "Repo: $WT_REPO_NAME ($WT_REPO_ROOT)"
 
 ### Hook Examples
 
+See **[examples/hooks/](examples/hooks/)** for a complete collection of ready-to-use hooks. Here are a few quick examples:
+
 **Install dependencies:**
 ```bash
 #!/bin/bash
-# .wt/hooks/post_create.d/10-install.sh
-npm install
+# .wt/hooks/post_create.d/01-npm-install.sh
+set -e
+echo "Installing npm dependencies..."
+npm install --quiet
+echo "✓ Dependencies installed"
 ```
 
 **Open worktree in editor:**
 ```bash
 #!/bin/bash
-# ~/.config/wt/hooks/post_create.d/02_open.sh
-cursor .
+# ~/.config/wt/hooks/post_create.d/03-open-vscode.sh
+code .
 ```
 
-Make it executable:
-```bash
-chmod +x ~/.config/wt/hooks/post_create.d/02_open.sh
-```
-
-You can use any editor: `code .` for VS Code, `nvim .` for Neovim, etc.
-
-> [!TIP]
-> On Windows, use a `.bat` or `.cmd` file instead, or ensure you have Git Bash installed to run `.sh` scripts.
-
-**Create feature branch tracking:**
-```python
-#!/usr/bin/env python3
-# .wt/hooks/post_create.d/20-tracking.py
-import subprocess
-import os
-
-branch = os.environ["WT_BRANCH_NAME"]
-subprocess.run(["git", "push", "-u", "origin", branch], check=True)
-```
-
-**Initialize database:**
+**Python virtual environment:**
 ```bash
 #!/bin/bash
-# .wt/hooks/post_create.d/30-db.sh
-docker-compose up -d db
-sleep 2
-./scripts/migrate.sh
+# .wt/hooks/post_create.d/02-python-venv.sh
+set -e
+if [ -f "requirements.txt" ]; then
+    echo "Creating Python virtual environment..."
+    python -m venv .venv
+    .venv/bin/pip install -r requirements.txt --quiet
+    echo "✓ Virtual environment ready"
+fi
 ```
+
+**Copy environment files from main repo:**
+```bash
+#!/bin/bash
+# .wt/hooks/post_create.d/05-setup-env.sh
+set -e
+if [ -f "$WT_REPO_ROOT/.env.local" ]; then
+    cp "$WT_REPO_ROOT/.env.local" .env.local
+    echo "✓ Environment file copied"
+fi
+```
+
+> [!TIP]
+> Copy hooks from [examples/hooks/](examples/hooks/) to your hooks directory and make them executable with `chmod +x`. See the [examples README](examples/hooks/README.md) for installation instructions and more examples.
 
 ---
 
