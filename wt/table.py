@@ -7,6 +7,7 @@ from typing import Any
 # ANSI color codes
 class Color:
     """ANSI color codes for terminal output."""
+
     RESET = "\033[0m"
     BOLD = "\033[1m"
     DIM = "\033[2m"
@@ -76,21 +77,22 @@ def format_table(headers: list[str], rows: list[list[Any]], rich: bool = False) 
 def _visible_len(text: str) -> int:
     """Calculate visible length of text, excluding ANSI codes."""
     import re
+
     # Remove ANSI escape sequences
-    ansi_escape = re.compile(r'\033\[[0-9;]*m')
-    return len(ansi_escape.sub('', text))
+    ansi_escape = re.compile(r"\033\[[0-9;]*m")
+    return len(ansi_escape.sub("", text))
 
 
 def _pad_with_ansi(text: str, width: int) -> str:
     """Pad text to width, accounting for ANSI codes."""
     visible = _visible_len(text)
     padding = width - visible
-    return text + (' ' * padding)
+    return text + (" " * padding)
 
 
 def _format_row(cells: list[str], widths: list[int]) -> str:
     """Format a single row."""
-    padded = [_pad_with_ansi(cell, width) for cell, width in zip(cells, widths)]
+    padded = [_pad_with_ansi(cell, width) for cell, width in zip(cells, widths, strict=False)]
     return "  ".join(padded)
 
 
@@ -148,7 +150,12 @@ def print_status_table(statuses: list[Any], rich: bool = False) -> None:
         if rich:
             if status.branch:
                 # Green if clean and up-to-date, cyan otherwise
-                if not status.is_dirty and status.ahead == 0 and status.behind == 0 and status.behind_main == 0:
+                if (
+                    not status.is_dirty
+                    and status.ahead == 0
+                    and status.behind == 0
+                    and status.behind_main == 0
+                ):
                     branch_name = colorize(branch_name, Color.BRIGHT_GREEN)
                 else:
                     branch_name = colorize(branch_name, Color.CYAN)
@@ -185,15 +192,17 @@ def print_status_table(statuses: list[Any], rich: bool = False) -> None:
         if rich and behind_main_str:
             behind_main_str = colorize(behind_main_str, Color.YELLOW)
 
-        rows.append([
-            branch_name,
-            path_str,
-            sha_str,
-            dirty_str,
-            ahead_str,
-            behind_str,
-            behind_main_str,
-        ])
+        rows.append(
+            [
+                branch_name,
+                path_str,
+                sha_str,
+                dirty_str,
+                ahead_str,
+                behind_str,
+                behind_main_str,
+            ]
+        )
 
     _safe_print(format_table(headers, rows, rich=rich))
 
@@ -244,11 +253,13 @@ def print_list_table(worktrees: list[Any], rich: bool = False) -> None:
         if rich and locked_str:
             locked_str = colorize(locked_str, Color.BRIGHT_RED)
 
-        rows.append([
-            branch_name,
-            path_str,
-            sha_str,
-            locked_str,
-        ])
+        rows.append(
+            [
+                branch_name,
+                path_str,
+                sha_str,
+                locked_str,
+            ]
+        )
 
     _safe_print(format_table(headers, rows, rich=rich))

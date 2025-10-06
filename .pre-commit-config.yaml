@@ -1,0 +1,41 @@
+# Pre-commit hooks for wt - optimized for speed
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Basic file checks (very fast)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # Ruff - extremely fast Python linter & formatter (replaces flake8, isort, pyupgrade)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      # Linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      # Formatter (replaces black)
+      - id: ruff-format
+
+  # Python-specific checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-ast           # Validate Python syntax
+      - id: check-builtin-literals  # Require literal syntax
+      - id: debug-statements    # Prevent debug imports
+
+# Performance: run only on changed files by default
+# Use --all-files flag to run on entire codebase
+default_install_hook_types: [pre-commit, pre-push]

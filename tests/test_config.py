@@ -2,20 +2,17 @@
 
 import tempfile
 from pathlib import Path
-import pytest
-from wt.config import load_config, merge_configs, get_default_config
+
+from wt.config import load_config, merge_configs
 
 
 def test_merge_configs_deep_override():
     """Nested config values must override correctly."""
     base = {
         "paths": {"worktree_root": "/old", "template": "old"},
-        "branches": {"auto_prefix": "base/"}
+        "branches": {"auto_prefix": "base/"},
     }
-    override = {
-        "paths": {"worktree_root": "/new"},
-        "update": {"strategy": "rebase"}
-    }
+    override = {"paths": {"worktree_root": "/new"}, "update": {"strategy": "rebase"}}
 
     result = merge_configs(base, override)
 
@@ -50,6 +47,7 @@ auto_prefix = "global/"
 
         # Load with override
         import wt.config
+
         orig_func = wt.config.get_global_config_path
 
         def mock_global_path():

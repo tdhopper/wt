@@ -1,8 +1,10 @@
 """Path template tests - only the failure modes that matter."""
 
-import pytest
 from pathlib import Path
-from wt.paths import render_path_template, build_template_context
+
+import pytest
+
+from wt.paths import build_template_context, render_path_template
 
 
 def test_template_renders_all_variables(tmp_path):
@@ -45,7 +47,7 @@ def test_template_with_slashes_creates_nested_path(tmp_path):
         repo_root=repo_root,
         wt_root=wt_root,
         branch_name="feat/sub/nested",
-        source_branch="main"
+        source_branch="main",
     )
 
     template = "$WT_ROOT/$BRANCH_NAME"

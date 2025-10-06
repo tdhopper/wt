@@ -106,13 +106,14 @@ def _collect_non_executable_hooks(directory: Path) -> list[Path]:
 
     for entry in sorted(directory.iterdir()):
         # Skip directories and hidden files
-        if not entry.is_file() or entry.name.startswith('.'):
+        if not entry.is_file() or entry.name.startswith("."):
             continue
 
         # Check if file looks like a hook (common extensions)
-        if entry.suffix in ['.sh', '.py', '.bash'] or not entry.suffix:
-            if not os.access(entry, os.X_OK):
-                non_executable.append(entry)
+        if (entry.suffix in [".sh", ".py", ".bash"] or not entry.suffix) and not os.access(
+            entry, os.X_OK
+        ):
+            non_executable.append(entry)
 
     return non_executable
 
@@ -163,7 +164,9 @@ def run_post_create_hooks(
     # Check for non-executable hooks and warn
     non_executable = find_non_executable_hooks(local_config_path, global_config_path, hook_dir_name)
     for hook_path in non_executable:
-        print(f"Warning: Hook '{hook_path}' is not executable. Run: chmod +x {hook_path}", flush=True)
+        print(
+            f"Warning: Hook '{hook_path}' is not executable. Run: chmod +x {hook_path}", flush=True
+        )
 
     hooks = discover_hooks(local_config_path, global_config_path, hook_dir_name)
 
@@ -226,12 +229,12 @@ def _run_hook(hook_path: Path, cwd: Path, env: dict[str, str], timeout: int) -> 
         if result.stdout:
             print(result.stdout, end="", flush=True)
 
-    except subprocess.TimeoutExpired:
-        raise HookError(f"{hook_path.name} timed out after {timeout} seconds")
+    except subprocess.TimeoutExpired as e:
+        raise HookError(f"{hook_path.name} timed out after {timeout} seconds") from e
     except FileNotFoundError as e:
-        raise HookError(f"Failed to execute {hook_path.name}: {e}")
+        raise HookError(f"Failed to execute {hook_path.name}: {e}") from e
     except Exception as e:
-        raise HookError(f"Unexpected error running {hook_path.name}: {e}")
+        raise HookError(f"Unexpected error running {hook_path.name}: {e}") from e
 
 
 def _command_exists(command: str) -> bool:

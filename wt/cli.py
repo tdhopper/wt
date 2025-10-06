@@ -21,7 +21,7 @@ def cmd_new(args, cfg, repo_root):
         git_branch_name = auto_prefix + git_branch_name
 
     # Fetch origin
-    print(f"Fetching from origin...", flush=True)
+    print("Fetching from origin...", flush=True)
     gitutil.fetch_origin(repo_root)
 
     # Resolve source branch (auto-detect if default was used)
@@ -37,7 +37,10 @@ def cmd_new(args, cfg, repo_root):
     # Check if branch already has a worktree (using git branch name)
     existing_path = gitutil.worktree_path_for_branch(git_branch_name, repo_root)
     if existing_path:
-        print(f"Error: Branch '{git_branch_name}' already has a worktree at: {existing_path}", file=sys.stderr)
+        print(
+            f"Error: Branch '{git_branch_name}' already has a worktree at: {existing_path}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # Resolve worktree path (using folder branch name without prefix)
@@ -120,7 +123,7 @@ def cmd_list(args, cfg, repo_root):
 def cmd_status(args, cfg, repo_root):
     """Show status of all worktrees."""
     # Fetch for accurate status
-    print(f"Fetching from origin...", flush=True)
+    print("Fetching from origin...", flush=True)
     gitutil.fetch_origin(repo_root)
 
     # Resolve base branch (auto-detect if default was used)
@@ -198,7 +201,7 @@ def cmd_rm(args, cfg, repo_root):
 def cmd_prune_merged(args, cfg, repo_root):
     """Prune worktrees for merged branches."""
     # Fetch
-    print(f"Fetching from origin...", flush=True)
+    print("Fetching from origin...", flush=True)
     gitutil.fetch_origin(repo_root)
 
     # Resolve base branch (auto-detect if default was used)
@@ -227,7 +230,7 @@ def cmd_prune_merged(args, cfg, repo_root):
 
     # Confirm if not --yes
     if not args.yes:
-        response = input(f"Prune these branches? [y/N] ")
+        response = input("Prune these branches? [y/N] ")
         if response.lower() != "y":
             print("Aborted")
             return
@@ -252,7 +255,7 @@ def cmd_prune_merged(args, cfg, repo_root):
 def cmd_pull_main(args, cfg, repo_root):
     """Pull main into all worktrees."""
     # Fetch
-    print(f"Fetching from origin...", flush=True)
+    print("Fetching from origin...", flush=True)
     gitutil.fetch_origin(repo_root)
 
     # Resolve base branch (auto-detect if default was used)
@@ -276,13 +279,13 @@ def cmd_pull_main(args, cfg, repo_root):
         is_dirty = gitutil.is_dirty(wt.path)
 
         if is_dirty and not auto_stash:
-            print(f"  Skipping (dirty, use --stash to auto-stash)", flush=True)
+            print("  Skipping (dirty, use --stash to auto-stash)", flush=True)
             continue
 
         # Stash if needed
         stashed = False
         if is_dirty and auto_stash:
-            print(f"  Stashing changes...", flush=True)
+            print("  Stashing changes...", flush=True)
             gitutil.stash_push(wt.path)
             stashed = True
 
@@ -293,17 +296,17 @@ def cmd_pull_main(args, cfg, repo_root):
         except gitutil.GitError as e:
             print(f"  Error: {e}", file=sys.stderr)
             if stashed:
-                print(f"  Warning: Changes are stashed, run 'git stash pop' manually", flush=True)
+                print("  Warning: Changes are stashed, run 'git stash pop' manually", flush=True)
             continue
 
         # Pop stash if we stashed
         if stashed:
             try:
                 gitutil.stash_pop(wt.path)
-                print(f"  Popped stash", flush=True)
+                print("  Popped stash", flush=True)
             except gitutil.GitError as e:
                 print(f"  Warning: Failed to pop stash: {e}", flush=True)
-                print(f"  Run 'git stash pop' manually to recover changes", flush=True)
+                print("  Run 'git stash pop' manually to recover changes", flush=True)
 
     print("\nDone")
 
@@ -376,7 +379,7 @@ def cmd_doctor(args, cfg, repo_root):
     try:
         print(f"✓ Repository root: {repo_root}")
     except Exception as e:
-        print(f"✗ Repository discovery failed")
+        print("✗ Repository discovery failed")
         issues.append(str(e))
 
     # Check config
@@ -398,20 +401,18 @@ def cmd_doctor(args, cfg, repo_root):
 
     if wt_root.exists():
         if not os.access(wt_root, os.W_OK):
-            print(f"✗ Worktree root is not writable")
+            print("✗ Worktree root is not writable")
             issues.append(f"Cannot write to {wt_root}")
         else:
-            print(f"✓ Worktree root is writable")
+            print("✓ Worktree root is writable")
     else:
-        print(f"  Worktree root does not exist yet (will be created)")
+        print("  Worktree root does not exist yet (will be created)")
 
     # Check hooks
     hook_dir = cfg["hooks"]["post_create_dir"]
 
     all_hooks = hooks.discover_hooks(
-        local_config if local_config.exists() else None,
-        global_config,
-        hook_dir
+        local_config if local_config.exists() else None, global_config, hook_dir
     )
 
     if all_hooks:
@@ -419,20 +420,20 @@ def cmd_doctor(args, cfg, repo_root):
         local_hook_dir = local_config.parent / hook_dir if local_config.exists() else None
         global_hook_dir = global_config.parent / hook_dir
 
-        local_count = sum(1 for h in all_hooks if local_hook_dir and h.is_relative_to(local_hook_dir))
+        local_count = sum(
+            1 for h in all_hooks if local_hook_dir and h.is_relative_to(local_hook_dir)
+        )
         global_count = sum(1 for h in all_hooks if h.is_relative_to(global_hook_dir))
 
         print(f"✓ Found {local_count} local + {global_count} global hooks")
         for hook in all_hooks:
             print(f"  - {hook}")
     else:
-        print(f"  No hooks configured (optional)")
+        print("  No hooks configured (optional)")
 
     # Check for non-executable hooks
     non_executable = hooks.find_non_executable_hooks(
-        local_config if local_config.exists() else None,
-        global_config,
-        hook_dir
+        local_config if local_config.exists() else None, global_config, hook_dir
     )
     if non_executable:
         print(f"✗ Found {len(non_executable)} non-executable hook(s):")
@@ -467,7 +468,9 @@ def main():
     # new
     parser_new = subparsers.add_parser("new", help="Create a new worktree")
     parser_new.add_argument("branch", help="Branch name")
-    parser_new.add_argument("--from", dest="from_branch", default="origin/main", help="Source branch")
+    parser_new.add_argument(
+        "--from", dest="from_branch", default="origin/main", help="Source branch"
+    )
     parser_new.add_argument("--track", action="store_true", help="Set upstream tracking")
     parser_new.add_argument("--force", action="store_true", help="Force creation, remove empty dir")
 
@@ -478,7 +481,9 @@ def main():
     # status
     parser_status = subparsers.add_parser("status", help="Show worktree status")
     parser_status.add_argument("--json", action="store_true", help="Output as JSON")
-    parser_status.add_argument("--rich", action="store_true", default=None, help="Use rich formatting")
+    parser_status.add_argument(
+        "--rich", action="store_true", default=None, help="Use rich formatting"
+    )
 
     # rm
     parser_rm = subparsers.add_parser("rm", help="Remove a worktree")
@@ -490,14 +495,18 @@ def main():
     # prune-merged
     parser_prune = subparsers.add_parser("prune-merged", help="Prune merged branches")
     parser_prune.add_argument("--base", help="Base branch (default: from config)")
-    parser_prune.add_argument("--protected", nargs="*", help="Protected branches (default: from config)")
+    parser_prune.add_argument(
+        "--protected", nargs="*", help="Protected branches (default: from config)"
+    )
     parser_prune.add_argument("--yes", action="store_true", help="Skip confirmation")
     parser_prune.add_argument("--delete-branch", action="store_true", help="Also delete branches")
 
     # pull-main
     parser_pull = subparsers.add_parser("pull-main", help="Update all worktrees from main")
     parser_pull.add_argument("--base", help="Base branch (default: from config)")
-    parser_pull.add_argument("--strategy", choices=["rebase", "merge", "ff-only"], help="Update strategy")
+    parser_pull.add_argument(
+        "--strategy", choices=["rebase", "merge", "ff-only"], help="Update strategy"
+    )
     parser_pull.add_argument("--stash", action="store_true", help="Auto-stash dirty trees")
 
     # where
@@ -509,10 +518,10 @@ def main():
     parser_open.add_argument("branch", help="Branch name")
 
     # gc
-    parser_gc = subparsers.add_parser("gc", help="Clean up stale worktrees")
+    subparsers.add_parser("gc", help="Clean up stale worktrees")
 
     # doctor
-    parser_doctor = subparsers.add_parser("doctor", help="Check configuration")
+    subparsers.add_parser("doctor", help="Check configuration")
 
     args = parser.parse_args()
 

@@ -1,6 +1,5 @@
 """Path discovery and template rendering."""
 
-import os
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -47,9 +46,9 @@ def discover_repo_root(start: Path | None = None) -> Path:
         # In a worktree: /path/to/main/repo/.git -> main repo_root
         return git_common_dir.parent
     except subprocess.CalledProcessError as e:
-        raise RepoDiscoveryError(f"Not in a git repository: {e.stderr.strip()}")
-    except FileNotFoundError:
-        raise RepoDiscoveryError("git command not found")
+        raise RepoDiscoveryError(f"Not in a git repository: {e.stderr.strip()}") from e
+    except FileNotFoundError as e:
+        raise RepoDiscoveryError("git command not found") from e
 
 
 def default_wt_root(repo_root: Path) -> Path:
@@ -69,7 +68,9 @@ def default_wt_root(repo_root: Path) -> Path:
     return parent / f"{repo_name}-worktrees"
 
 
-def render_path_template(template: str, context: dict[str, str], allow_unknown: bool = False) -> Path:
+def render_path_template(
+    template: str, context: dict[str, str], allow_unknown: bool = False
+) -> Path:
     """
     Render a path template with variable substitution.
 
@@ -91,7 +92,7 @@ def render_path_template(template: str, context: dict[str, str], allow_unknown: 
     # Find all $VARNAME patterns
     import re
 
-    pattern = re.compile(r'\$([A-Z_][A-Z0-9_]*)')
+    pattern = re.compile(r"\$([A-Z_][A-Z0-9_]*)")
 
     def replace_var(match):
         var_name = match.group(1)

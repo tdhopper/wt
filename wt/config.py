@@ -50,7 +50,7 @@ def load_toml_file(path: Path) -> dict[str, Any]:
         with open(path, "rb") as f:
             return tomllib.load(f)
     except Exception as e:
-        raise RuntimeError(f"Failed to load config from {path}: {e}")
+        raise RuntimeError(f"Failed to load config from {path}: {e}") from e
 
 
 def merge_configs(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -76,7 +76,9 @@ def get_local_config_path(repo_root: Path) -> Path:
     return repo_root / ".wt" / "config.toml"
 
 
-def load_config(repo_root: Path | None, cli_overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+def load_config(
+    repo_root: Path | None, cli_overrides: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """
     Load configuration with precedence: CLI > local > global > defaults.
 

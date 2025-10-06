@@ -1,5 +1,6 @@
 """Repository-scoped locking for concurrent safety."""
 
+import contextlib
 import os
 import subprocess
 import sys
@@ -63,9 +64,9 @@ class RepoLock:
         except subprocess.CalledProcessError as e:
             raise LockError(
                 f"Cannot determine git directory (are you in a git repository?): {e.stderr.strip()}"
-            )
-        except FileNotFoundError:
-            raise LockError("git command not found")
+            ) from e
+        except FileNotFoundError as e:
+            raise LockError("git command not found") from e
 
     def acquire(self, timeout: int = 10) -> None:
         """
@@ -79,9 +80,9 @@ class RepoLock:
         """
         # Create lock file
         try:
-            self.lock_file = open(self.lock_path, "a")
-        except (OSError, IOError) as e:
-            raise LockError(f"Cannot create lock file at {self.lock_path}: {e}")
+            self.lock_file = open(self.lock_path, "a")  # noqa: SIM115
+        except OSError as e:
+            raise LockError(f"Cannot create lock file at {self.lock_path}: {e}") from e
 
         # Try to acquire lock
         if sys.platform == "win32":
@@ -97,10 +98,10 @@ class RepoLock:
 
         try:
             fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except (IOError, OSError) as e:
+        except OSError as e:
             self.lock_file.close()
             self.lock_file = None
-            raise LockError(f"Could not acquire lock (another wt process running?): {e}")
+            raise LockError(f"Could not acquire lock (another wt process running?): {e}") from e
 
     def _acquire_windows(self) -> None:
         """Acquire lock using PID file (Windows)."""
@@ -132,9 +133,9 @@ class RepoLock:
                 self.lock_file.flush()
                 return
 
-            except (ValueError, IOError, OSError) as e:
+            except (ValueError, OSError) as e:
                 if attempt == max_attempts - 1:
-                    raise LockError(f"Could not acquire lock: {e}")
+                    raise LockError(f"Could not acquire lock: {e}") from e
                 time.sleep(0.1)
 
     def _process_exists_windows(self, pid: int) -> bool:
@@ -157,23 +158,17 @@ class RepoLock:
         if sys.platform != "win32":
             import fcntl
 
-            try:
+            with contextlib.suppress(OSError):
                 fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
-            except (IOError, OSError):
-                pass
 
         # Close and clean up
-        try:
+        with contextlib.suppress(OSError):
             self.lock_file.close()
-        except (IOError, OSError):
-            pass
 
         # Remove lock file on Windows
         if sys.platform == "win32":
-            try:
+            with contextlib.suppress(OSError):
                 self.lock_path.unlink(missing_ok=True)
-            except (IOError, OSError):
-                pass
 
         self.lock_file = None
         self.acquired = False

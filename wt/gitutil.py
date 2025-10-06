@@ -44,9 +44,9 @@ def git(*args: str, cwd: Path, check: bool = True) -> str:
         )
         return result.stdout.strip()
     except subprocess.CalledProcessError as e:
-        raise GitError(f"Git command failed: {e.stderr.strip()}")
-    except FileNotFoundError:
-        raise GitError("git command not found")
+        raise GitError(f"Git command failed: {e.stderr.strip()}") from e
+    except FileNotFoundError as e:
+        raise GitError("git command not found") from e
 
 
 def branch_exists(name: str, cwd: Path) -> bool:
@@ -440,7 +440,7 @@ def set_upstream(path: Path, branch: str, upstream: str) -> None:
     Raises:
         GitError: If setting upstream fails
     """
-    git("branch", f"-u", upstream, branch, cwd=path)
+    git("branch", "-u", upstream, branch, cwd=path)
 
 
 def update_with_strategy(
