@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="logo.png" alt="wt logo" width="200">
+  <img src="https://tdhopper.com/images/wt.png" alt="wt logo" width="200">
   <h1>wt</h1>
   <p><strong>Zero-friction git worktree manager</strong></p>
 </div>
