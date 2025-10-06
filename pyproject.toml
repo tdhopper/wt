@@ -1,0 +1,10 @@
+[project]
+name = "wt"
+version = "0.1.0"
+description = "Zero-friction git worktree manager"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+wt = "wt.cli:main"
