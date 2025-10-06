@@ -27,6 +27,8 @@ jobs:
 
       - name: Install package and dev dependencies
         run: uv sync --dev
+        env:
+          UV_INDEX_URL: https://pypi.org/simple
 
       - name: Run tests
         run: uv run pytest tests/ -v --tb=short

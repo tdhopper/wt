@@ -1,6 +1,8 @@
-# wt
-
-**Zero-friction git worktree manager**
+<div align="center">
+  <img src="logo.png" alt="wt logo" width="200">
+  <h1>wt</h1>
+  <p><strong>Zero-friction git worktree manager</strong></p>
+</div>
 
 `wt` is a fast, deterministic CLI for creating and managing git worktrees without interactive prompts. Stop juggling branches in a single working directory - work on multiple features simultaneously with isolated, organized worktrees.
 
