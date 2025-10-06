@@ -368,9 +368,11 @@ def create_worktree(
     args = ["worktree", "add"]
 
     if create_branch:
-        args.extend(["-b", branch])
-
-    args.extend([str(path), source])
+        # Create new branch from source
+        args.extend(["-b", branch, str(path), source])
+    else:
+        # Checkout existing branch
+        args.extend([str(path), branch])
 
     git(*args, cwd=repo_root)
 

@@ -212,3 +212,53 @@ def test_doctor_catches_missing_git(tmp_path):
 
     # Should warn about git not found
     assert "git" in result.stdout.lower() or result.returncode != 0
+
+
+def test_new_worktree_with_existing_branch_not_detached(git_repo):
+    """Regression: creating worktree for existing branch should checkout that branch, not create detached HEAD."""
+    repo = git_repo["repo"]
+
+    # First, create a branch directly with git
+    subprocess.run(["git", "branch", "existing-branch"], cwd=repo, check=True, capture_output=True)
+
+    # Now create a worktree for this existing branch
+    result = subprocess.run(
+        [sys.executable, "-m", "wt.cli", "new", "existing-branch"],
+        cwd=repo,
+        capture_output=True,
+        text=True
+    )
+
+    assert result.returncode == 0, f"Failed: {result.stderr}"
+
+    # Get worktree path
+    list_result = subprocess.run(
+        [sys.executable, "-m", "wt.cli", "list", "--json"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True
+    )
+
+    import json
+    worktrees = json.loads(list_result.stdout)
+    wt_path = None
+    for wt in worktrees:
+        if wt["branch"] and "existing-branch" in wt["branch"]:
+            wt_path = Path(wt["path"])
+            break
+
+    assert wt_path and wt_path.exists(), f"Worktree not found for existing-branch. Got: {list_result.stdout}"
+
+    # Verify it's on the branch, not detached
+    status_result = subprocess.run(
+        ["git", "status"],
+        cwd=wt_path,
+        capture_output=True,
+        text=True,
+        check=True
+    )
+
+    # Should NOT say "Not currently on any branch" (detached)
+    assert "Not currently on any branch" not in status_result.stdout, "Worktree is detached HEAD, should be on existing-branch"
+    assert "On branch existing-branch" in status_result.stdout, "Worktree should be on existing-branch"
