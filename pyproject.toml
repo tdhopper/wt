@@ -1,5 +1,5 @@
 [project]
-name = "wt"
+name = "wt-cli"
 version = "0.1.0"
 description = "Zero-friction git worktree manager"
 readme = "README.md"
