@@ -25,17 +25,71 @@ line-length = 100
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
-    "SIM", # flake8-simplify
+    "A",    # flake8-builtins (shadowing builtins)
+    "ARG",  # flake8-unused-arguments
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "D",    # pydocstyle (docstrings)
+    "DTZ",  # flake8-datetimez (timezone awareness)
+    "E",    # pycodestyle errors
+    "ERA",  # eradicate (commented-out code)
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "PL",   # pylint
+    "PT",   # flake8-pytest-style
+    "PTH",  # flake8-use-pathlib
+    "RET",  # flake8-return
+    "RSE",  # flake8-raise
+    "RUF",  # ruff-specific rules
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "TID",  # flake8-tidy-imports
+    "TRY",  # tryceratops (exception handling)
+    "UP",   # pyupgrade
+    "W",    # pycodestyle warnings
 ]
 ignore = [
-    "E501",  # line too long (handled by formatter)
+    "D100",   # missing docstring in public module
+    "D101",   # missing docstring in public class
+    "D102",   # missing docstring in public method
+    "D103",   # missing docstring in public function
+    "D104",   # missing docstring in public package
+    "D105",   # missing docstring in magic method
+    "D107",   # missing docstring in __init__
+    "D203",   # 1 blank line required before class docstring (conflicts with D211)
+    "D213",   # multi-line docstring summary should start at the second line (conflicts with D212)
+    "E501",   # line too long (handled by formatter)
+    "TRY003", # avoid specifying long messages outside exception class
+    "PLR0913", # too many arguments to function call
+    "PLR2004", # magic value used in comparison
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "ARG001",  # unused function args in fixtures
+    "PLR2004", # magic values OK in tests
+]
+
+[tool.ruff.lint.pylint]
+max-args = 7
+max-branches = 15
+max-returns = 6
+max-statements = 60
+
+[tool.ruff.lint.isort]
+known-first-party = ["wt"]
+force-single-line = false
+lines-after-imports = 2
+force-sort-within-sections = true
+split-on-trailing-comma = false
+combine-as-imports = true
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
 ]
 
 [tool.ruff.format]
