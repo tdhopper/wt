@@ -1,6 +1,7 @@
 """Repository-scoped locking for concurrent safety."""
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import TextIO
@@ -25,9 +26,46 @@ class RepoLock:
             repo_root: Repository root path
         """
         self.repo_root = repo_root
-        self.lock_path = repo_root / ".git" / "wt.lock"
+        self.lock_path = self._get_lock_path(repo_root)
         self.lock_file: TextIO | None = None
         self.acquired = False
+
+    def _get_lock_path(self, repo_root: Path) -> Path:
+        """
+        Get the lock file path, handling both regular repos and worktrees.
+
+        Args:
+            repo_root: Repository root path
+
+        Returns:
+            Path to the lock file
+
+        Raises:
+            LockError: If git common directory cannot be found
+        """
+        try:
+            # Use --git-common-dir to get the main .git directory
+            # This works correctly in both regular repos and worktrees
+            result = subprocess.run(
+                ["git", "rev-parse", "--git-common-dir"],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            git_common_dir = Path(result.stdout.strip())
+
+            # Make it absolute if it's relative
+            if not git_common_dir.is_absolute():
+                git_common_dir = (repo_root / git_common_dir).resolve()
+
+            return git_common_dir / "wt.lock"
+        except subprocess.CalledProcessError as e:
+            raise LockError(
+                f"Cannot determine git directory (are you in a git repository?): {e.stderr.strip()}"
+            )
+        except FileNotFoundError:
+            raise LockError("git command not found")
 
     def acquire(self, timeout: int = 10) -> None:
         """
@@ -39,13 +77,11 @@ class RepoLock:
         Raises:
             LockError: If lock cannot be acquired
         """
-        # Ensure .git directory exists
-        git_dir = self.repo_root / ".git"
-        if not git_dir.exists():
-            raise LockError(f"Git directory not found: {git_dir}")
-
         # Create lock file
-        self.lock_file = open(self.lock_path, "a")
+        try:
+            self.lock_file = open(self.lock_path, "a")
+        except (OSError, IOError) as e:
+            raise LockError(f"Cannot create lock file at {self.lock_path}: {e}")
 
         # Try to acquire lock
         if sys.platform == "win32":
