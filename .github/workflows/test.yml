@@ -26,6 +26,16 @@ jobs:
       - name: Run pre-commit hooks
         run: uvx pre-commit run --all-files
 
+      - name: Send Pushover notification
+        if: failure()
+        run: |
+          curl -s -F "token=${{ secrets.PUSHOVER_APP_TOKEN }}" \
+            -F "user=${{ secrets.PUSHOVER_USER_KEY }}" \
+            -F "message=Build failed: pre-commit checks in ${{ github.repository }}" \
+            -F "title=GitHub Actions Failure" \
+            -F "url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            https://api.pushover.net/1/messages.json
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -51,3 +61,13 @@ jobs:
 
       - name: Run tests
         run: uv run pytest tests/ -v --tb=short
+
+      - name: Send Pushover notification
+        if: failure()
+        run: |
+          curl -s -F "token=${{ secrets.PUSHOVER_APP_TOKEN }}" \
+            -F "user=${{ secrets.PUSHOVER_USER_KEY }}" \
+            -F "message=Tests failed on ${{ matrix.os }} / Python ${{ matrix.python-version }} in ${{ github.repository }}" \
+            -F "title=GitHub Actions Failure" \
+            -F "url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            https://api.pushover.net/1/messages.json
