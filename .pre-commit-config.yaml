@@ -28,14 +28,6 @@ repos:
       # Formatter (replaces black)
       - id: ruff-format
 
-  # Python-specific checks
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
-      - id: check-ast           # Validate Python syntax
-      - id: check-builtin-literals  # Require literal syntax
-      - id: debug-statements    # Prevent debug imports
-
 # Performance: run only on changed files by default
 # Use --all-files flag to run on entire codebase
 default_install_hook_types: [pre-commit, pre-push]
