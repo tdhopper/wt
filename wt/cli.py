@@ -38,9 +38,10 @@ def cmd_new(args, cfg, repo_root):
     existing_path = gitutil.worktree_path_for_branch(git_branch_name, repo_root)
     if existing_path:
         print(
-            f"Error: Branch '{git_branch_name}' already has a worktree at: {existing_path}",
+            f"Error: Branch '{git_branch_name}' is already checked out at: {existing_path}",
             file=sys.stderr,
         )
+        print("       Git does not allow the same branch in multiple worktrees", file=sys.stderr)
         sys.exit(1)
 
     # Resolve worktree path (using folder branch name without prefix)

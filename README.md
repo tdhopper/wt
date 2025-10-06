@@ -210,13 +210,15 @@ auto_stash = true        # Always stash automatically
 
 ### Protect important branches
 
-Prevent accidental deletion of specific branches:
+Prevent accidental deletion during batch operations:
 
 ```toml
 [prune]
 protected = ["main", "develop", "staging"]
 delete_branch_with_worktree = false
 ```
+
+**Note:** Protected branches only affect `wt prune-merged` (batch cleanup). They do not prevent `wt rm <branch>` (explicit removal), since explicitly naming a branch indicates intent.
 
 ### Find and jump to worktrees
 
@@ -230,6 +232,22 @@ cd $(wt where my-feature)
 # Open in editor
 code $(wt where my-feature)
 ```
+
+### Recreate worktrees for existing branches
+
+If you removed a worktree but kept the branch, you can recreate it:
+
+```bash
+# Previously: wt rm my-feature (without --delete-branch)
+# Branch still exists, but no worktree
+
+# Recreate the worktree for the existing branch
+wt new my-feature
+
+# This checks out the existing branch at a new worktree location
+```
+
+**Note:** You cannot create multiple worktrees for the same branch. Git prevents the same branch from being checked out in multiple locations simultaneously.
 
 ### Make VS Code windows visually distinct
 
@@ -306,10 +324,12 @@ custom_title = true
 
 ## Hooks System
 
-Hooks run in lexicographic order from two locations:
+Hooks run in two phases:
 
-1. **Local:** `<repo>/.wt/hooks/post_create.d/`
-2. **Global:** `~/.config/wt/hooks/post_create.d/`
+1. **Local hooks first:** All executable files from `<repo>/.wt/hooks/post_create.d/` (sorted alphabetically)
+2. **Global hooks second:** All executable files from `~/.config/wt/hooks/post_create.d/` (sorted alphabetically)
+
+This gives repo-specific hooks priority to run before global hooks.
 
 **Supported:**
 - Shell scripts: `*.sh`
