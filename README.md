@@ -51,6 +51,9 @@ wt prune-merged --yes
 
 ### Installation
 
+> [!IMPORTANT]
+> Requires Python ≥3.11 (for native TOML support via `tomllib`)
+
 ```bash
 # Install from source
 uv tool install -e .
@@ -163,6 +166,9 @@ Variables available:
 - `$SOURCE_BRANCH` - Branch this worktree was created from
 - `$DATE_ISO` / `$TIME_ISO` - Timestamps
 
+> [!TIP]
+> Branch names containing slashes (e.g., `feature/login`) automatically create nested directories. Useful for organizing worktrees by category.
+
 ### Run commands after creating worktrees
 
 **Example: Install dependencies automatically**
@@ -218,7 +224,8 @@ protected = ["main", "develop", "staging"]
 delete_branch_with_worktree = false
 ```
 
-**Note:** Protected branches only affect `wt prune-merged` (batch cleanup). They do not prevent `wt rm <branch>` (explicit removal), since explicitly naming a branch indicates intent.
+> [!TIP]
+> Protected branches only affect `wt prune-merged` (batch cleanup). They do not prevent `wt rm <branch>` (explicit removal), since explicitly naming a branch indicates intent.
 
 ### Find and jump to worktrees
 
@@ -247,7 +254,8 @@ wt new my-feature
 # This checks out the existing branch at a new worktree location
 ```
 
-**Note:** You cannot create multiple worktrees for the same branch. Git prevents the same branch from being checked out in multiple locations simultaneously.
+> [!WARNING]
+> You cannot create multiple worktrees for the same branch. Git prevents the same branch from being checked out in multiple locations simultaneously.
 
 ### Make VS Code windows visually distinct
 
@@ -266,7 +274,8 @@ When enabled, `wt new` creates `.vscode/settings.json` with:
 
 This makes it easy to visually distinguish between multiple VS Code windows when working across worktrees.
 
-**Note:** Settings are only created if `.vscode/settings.json` doesn't already exist, so existing customizations are preserved.
+> [!NOTE]
+> Settings are only created if `.vscode/settings.json` doesn't already exist, so existing customizations are preserved.
 
 ---
 
@@ -338,7 +347,8 @@ This gives repo-specific hooks priority to run before global hooks.
 
 ### Hook Environment
 
-All template variables are injected as `WT_*` environment variables:
+> [!NOTE]
+> All template variables are automatically injected as `WT_*` environment variables into your hooks.
 
 ```bash
 #!/bin/bash
@@ -369,7 +379,8 @@ chmod +x ~/.config/wt/hooks/post_create.d/02_open.sh
 
 You can use any editor: `code .` for VS Code, `nvim .` for Neovim, etc.
 
-**Note:** On Windows, use a `.bat` or `.cmd` file instead, or ensure you have Git Bash installed to run `.sh` scripts.
+> [!TIP]
+> On Windows, use a `.bat` or `.cmd` file instead, or ensure you have Git Bash installed to run `.sh` scripts.
 
 **Create feature branch tracking:**
 ```python
@@ -415,7 +426,8 @@ done
 
 ### Concurrent Safety
 
-`wt` uses a repo-scoped advisory lock (`.git/wt.lock`) to prevent concurrent modifications. Operations are serialized per-repo but can run concurrently across different repos.
+> [!IMPORTANT]
+> `wt` uses a repo-scoped advisory lock (`.git/wt.lock`) to prevent concurrent modifications. Operations are serialized per-repo but can run concurrently across different repos.
 
 ### Windows Support
 
@@ -433,7 +445,10 @@ Fully supported. Uses PID-based locking on Windows instead of `fcntl`.
 
 ### Stale worktree entries
 
-If you manually deleted a worktree directory:
+> [!CAUTION]
+> Manually deleting worktree directories (with `rm -rf` or file explorer) leaves stale git entries. Always use `wt rm` instead.
+
+If you already manually deleted a worktree directory:
 
 ```bash
 wt gc
