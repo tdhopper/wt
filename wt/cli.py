@@ -362,6 +362,148 @@ def cmd_gc(_args, cfg, repo_root):
     print("Done")
 
 
+def cmd_hooks_init(args, cfg, repo_root):
+    """Initialize hooks directory with optional template."""
+    hook_dir_name = cfg["hooks"]["post_create_dir"]
+
+    # Determine target directory
+    if args.local:
+        local_config_path = config.get_local_config_path(repo_root)
+        hook_dir = local_config_path.parent / hook_dir_name
+        scope = "local"
+    else:
+        global_config_path = config.get_global_config_path()
+        hook_dir = global_config_path.parent / hook_dir_name
+        scope = "global"
+
+    # Create directory
+    if hook_dir.exists():
+        print(f"Hook directory already exists: {hook_dir}")
+    else:
+        hook_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Created {scope} hook directory: {hook_dir}")
+
+    # Create template if requested
+    if args.template:
+        template_path = hook_dir / "00-example.sh"
+
+        if template_path.exists() and not args.force:
+            print(f"Template already exists: {template_path}")
+            print("Use --force to overwrite")
+            sys.exit(1)
+
+        template_content = """#!/bin/bash
+# Example post-create hook for wt
+#
+# This hook runs after a new worktree is created.
+# The following environment variables are available:
+#
+#   WT_REPO_ROOT      - Path to main repository
+#   WT_REPO_NAME      - Repository name
+#   WT_WT_ROOT        - Worktree root directory
+#   WT_BRANCH_NAME    - New branch name
+#   WT_SOURCE_BRANCH  - Source branch (e.g., origin/main)
+#   WT_WORKTREE_PATH  - Path to new worktree
+#   WT_DATE_ISO       - Current date (YYYY-MM-DD)
+#   WT_TIME_ISO       - Current time (HH:MM:SS)
+#
+# Example: Echo a message when creating worktrees
+echo "Setting up worktree: $WT_BRANCH_NAME"
+
+# Example: Install dependencies (uncomment to use)
+# echo "Installing dependencies..."
+# npm install
+
+# Example: Open in editor (uncomment to use)
+# code .
+
+# Add your setup commands here
+"""
+
+        template_path.write_text(template_content)
+        template_path.chmod(0o755)  # Make executable
+
+        print(f"Created template hook: {template_path}")
+        print("Hook is executable and ready to use")
+        print("\nEdit the hook to customize your setup:")
+        print(f"  {template_path}")
+
+
+def cmd_hooks_list(_args, cfg, repo_root):
+    """List all hooks and their status."""
+    hook_dir_name = cfg["hooks"]["post_create_dir"]
+
+    local_config_path = config.get_local_config_path(repo_root)
+    global_config_path = config.get_global_config_path()
+
+    # Determine hook directories
+    local_hook_dir = local_config_path.parent / hook_dir_name
+    global_hook_dir = global_config_path.parent / hook_dir_name
+
+    # Get all hooks (always pass local_config_path, hooks can exist without config file)
+    executable_hooks = hooks.discover_hooks(
+        local_config_path,
+        global_config_path,
+        hook_dir_name,
+    )
+
+    non_executable_hooks = hooks.find_non_executable_hooks(
+        local_config_path,
+        global_config_path,
+        hook_dir_name,
+    )
+
+    # Local hooks
+    print(f"Local hooks ({local_hook_dir}):")
+    if local_hook_dir.exists():
+        local_executable = [h for h in executable_hooks if h.is_relative_to(local_hook_dir)]
+        local_non_executable = [h for h in non_executable_hooks if h.is_relative_to(local_hook_dir)]
+
+        if local_executable or local_non_executable:
+            for hook in local_executable:
+                print(f"  ✓ {hook.name} (executable)")
+            for hook in local_non_executable:
+                print(f"  ✗ {hook.name} (not executable - run: chmod +x {hook})")
+        else:
+            print("  (none)")
+    else:
+        print("  (directory does not exist)")
+        print("  Run: wt hooks init --local")
+
+    print()
+
+    # Global hooks
+    print(f"Global hooks ({global_hook_dir}):")
+    if global_hook_dir.exists():
+        global_executable = [h for h in executable_hooks if h.is_relative_to(global_hook_dir)]
+        global_non_executable = [
+            h for h in non_executable_hooks if h.is_relative_to(global_hook_dir)
+        ]
+
+        if global_executable or global_non_executable:
+            for hook in global_executable:
+                print(f"  ✓ {hook.name} (executable)")
+            for hook in global_non_executable:
+                print(f"  ✗ {hook.name} (not executable - run: chmod +x {hook})")
+        else:
+            print("  (none)")
+    else:
+        print("  (directory does not exist)")
+        print("  Run: wt hooks init")
+
+    # Summary
+    total_executable = len(executable_hooks)
+    total_non_executable = len(non_executable_hooks)
+
+    print()
+    print(f"Summary: {total_executable} executable, {total_non_executable} non-executable")
+
+    if total_non_executable > 0:
+        print("\nTo make hooks executable, run:")
+        for hook in non_executable_hooks:
+            print(f"  chmod +x {hook}")
+
+
 def cmd_doctor(_args, cfg, repo_root):  # noqa: PLR0912
     """Check configuration and environment."""
     print("Checking wt configuration and environment...\n")
@@ -454,7 +596,7 @@ def cmd_doctor(_args, cfg, repo_root):  # noqa: PLR0912
         print("All checks passed ✓")
 
 
-def main():  # noqa: PLR0915
+def main():  # noqa: PLR0915, PLR0912
     """CLI entry point."""
     parser = argparse.ArgumentParser(
         description="wt - Zero-friction git worktree manager",
@@ -524,6 +666,25 @@ def main():  # noqa: PLR0915
     # doctor
     subparsers.add_parser("doctor", help="Check configuration")
 
+    # hooks
+    parser_hooks = subparsers.add_parser("hooks", help="Manage hooks")
+    hooks_subparsers = parser_hooks.add_subparsers(dest="hooks_command", help="Hooks command")
+
+    # hooks init
+    parser_hooks_init = hooks_subparsers.add_parser("init", help="Initialize hooks directory")
+    parser_hooks_init.add_argument(
+        "--local", action="store_true", help="Create local hooks directory"
+    )
+    parser_hooks_init.add_argument(
+        "--template", action="store_true", help="Create example template hook"
+    )
+    parser_hooks_init.add_argument(
+        "--force", action="store_true", help="Overwrite existing template"
+    )
+
+    # hooks list
+    hooks_subparsers.add_parser("list", help="List all hooks and their status")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -565,6 +726,14 @@ def main():  # noqa: PLR0915
             cmd_gc(args, cfg, repo_root)
         elif args.command == "doctor":
             cmd_doctor(args, cfg, repo_root)
+        elif args.command == "hooks":
+            if args.hooks_command == "init":
+                cmd_hooks_init(args, cfg, repo_root)
+            elif args.hooks_command == "list":
+                cmd_hooks_list(args, cfg, repo_root)
+            else:
+                print("Usage: wt hooks {init,list}", file=sys.stderr)
+                sys.exit(1)
 
 
 if __name__ == "__main__":

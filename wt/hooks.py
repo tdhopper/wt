@@ -27,8 +27,8 @@ def discover_hooks(
     """
     hooks = []
 
-    # Local hooks
-    if local_config_path and local_config_path.exists():
+    # Local hooks (check directory exists, not just config file)
+    if local_config_path:
         local_hook_dir = local_config_path.parent / hook_dir_name
         if local_hook_dir.exists() and local_hook_dir.is_dir():
             hooks.extend(_collect_executable_hooks(local_hook_dir))
@@ -78,8 +78,8 @@ def find_non_executable_hooks(
     """
     non_executable = []
 
-    # Local hooks
-    if local_config_path and local_config_path.exists():
+    # Local hooks (check directory exists, not just config file)
+    if local_config_path:
         local_hook_dir = local_config_path.parent / hook_dir_name
         if local_hook_dir.exists() and local_hook_dir.is_dir():
             non_executable.extend(_collect_non_executable_hooks(local_hook_dir))

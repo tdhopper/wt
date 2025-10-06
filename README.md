@@ -171,9 +171,24 @@ Variables available:
 
 ### Run commands after creating worktrees
 
+Hooks automatically run scripts after creating a new worktree. Use them to install dependencies, open editors, or initialize databases.
+
+**Quick start:**
+
+```bash
+# Create global hooks directory with example template
+wt hooks init --template
+
+# Edit the template to customize
+# ~/.config/wt/hooks/post_create.d/00-example.sh
+
+# Or create local hooks for a specific repo
+wt hooks init --local --template
+```
+
 **Example: Install dependencies automatically**
 
-Create `~/repos/myproject/.wt/hooks/post_create.d/01-install.sh`:
+Create a hook file at `~/repos/myproject/.wt/hooks/post_create.d/01-install.sh`:
 
 ```bash
 #!/bin/bash
@@ -188,13 +203,21 @@ Make it executable:
 chmod +x ~/repos/myproject/.wt/hooks/post_create.d/01-install.sh
 ```
 
-Now every `wt new` runs this hook in the new worktree.
+Or use `wt hooks init --local --template` to create an example hook that's already executable.
+
+**Check your hooks:**
+
+```bash
+# List all hooks and their status
+wt hooks list
+```
 
 **Hook environment variables:**
 - `WT_REPO_ROOT`, `WT_REPO_NAME`
 - `WT_BRANCH_NAME`, `WT_SOURCE_BRANCH`
 - `WT_WORKTREE_PATH`
-- All template variables available
+- `WT_DATE_ISO`, `WT_TIME_ISO`
+- All template variables available as `WT_*`
 
 ### Use different update strategies
 
@@ -333,6 +356,27 @@ custom_title = true
 
 ## Hooks System
 
+Hooks automatically run scripts after creating new worktrees, enabling workflow automation.
+
+### Setting Up Hooks
+
+**Initialize hooks with a template:**
+
+```bash
+# Create global hooks directory with example template
+wt hooks init --template
+
+# Create local hooks directory (repo-specific)
+wt hooks init --local --template
+
+# List all configured hooks
+wt hooks list
+```
+
+The `--template` flag creates an example hook (`00-example.sh`) that documents all available environment variables and includes common examples.
+
+### Hook Execution
+
 Hooks run in two phases:
 
 1. **Local hooks first:** All executable files from `<repo>/.wt/hooks/post_create.d/` (sorted alphabetically)
@@ -344,6 +388,9 @@ This gives repo-specific hooks priority to run before global hooks.
 - Shell scripts: `*.sh`
 - Python scripts: `*.py`
 - Any executable
+
+> [!TIP]
+> Use `wt hooks list` to check which hooks are configured and whether they're executable. Non-executable hooks are detected and you'll get instructions to fix them with `chmod +x`.
 
 ### Hook Environment
 
