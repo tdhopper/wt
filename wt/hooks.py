@@ -60,6 +60,63 @@ def _collect_executable_hooks(directory: Path) -> list[Path]:
     return hooks
 
 
+def find_non_executable_hooks(
+    local_config_path: Path | None,
+    global_config_path: Path,
+    hook_dir_name: str,
+) -> list[Path]:
+    """
+    Find hook files that exist but are not executable.
+
+    Args:
+        local_config_path: Path to local config file (or None)
+        global_config_path: Path to global config file
+        hook_dir_name: Hook directory name (e.g., "hooks/post_create.d")
+
+    Returns:
+        List of non-executable hook file paths
+    """
+    non_executable = []
+
+    # Local hooks
+    if local_config_path and local_config_path.exists():
+        local_hook_dir = local_config_path.parent / hook_dir_name
+        if local_hook_dir.exists() and local_hook_dir.is_dir():
+            non_executable.extend(_collect_non_executable_hooks(local_hook_dir))
+
+    # Global hooks
+    global_hook_dir = global_config_path.parent / hook_dir_name
+    if global_hook_dir.exists() and global_hook_dir.is_dir():
+        non_executable.extend(_collect_non_executable_hooks(global_hook_dir))
+
+    return non_executable
+
+
+def _collect_non_executable_hooks(directory: Path) -> list[Path]:
+    """
+    Collect files that look like hooks but are not executable.
+
+    Args:
+        directory: Directory to scan
+
+    Returns:
+        List of non-executable hook file paths
+    """
+    non_executable = []
+
+    for entry in sorted(directory.iterdir()):
+        # Skip directories and hidden files
+        if not entry.is_file() or entry.name.startswith('.'):
+            continue
+
+        # Check if file looks like a hook (common extensions)
+        if entry.suffix in ['.sh', '.py', '.bash'] or not entry.suffix:
+            if not os.access(entry, os.X_OK):
+                non_executable.append(entry)
+
+    return non_executable
+
+
 def build_hook_env(context: dict[str, str]) -> dict[str, str]:
     """
     Build environment variables for hook execution.
@@ -102,6 +159,11 @@ def run_post_create_hooks(
     hook_dir_name = config["hooks"]["post_create_dir"]
     timeout_seconds = config["hooks"]["timeout_seconds"]
     continue_on_error = config["hooks"]["continue_on_error"]
+
+    # Check for non-executable hooks and warn
+    non_executable = find_non_executable_hooks(local_config_path, global_config_path, hook_dir_name)
+    for hook_path in non_executable:
+        print(f"Warning: Hook '{hook_path}' is not executable. Run: chmod +x {hook_path}", flush=True)
 
     hooks = discover_hooks(local_config_path, global_config_path, hook_dir_name)
 

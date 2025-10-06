@@ -20,6 +20,17 @@ wt pull-main --stash
 wt prune-merged --yes
 ```
 
+## Table of Contents
+
+- [Why wt?](#why-wt)
+- [Quick Start](#quick-start)
+- [Tutorial: Your First Worktree](#tutorial-your-first-worktree)
+- [How-To Guides](#how-to-guides)
+- [Configuration](#configuration)
+- [Hooks System](#hooks-system)
+- [Advanced Topics](#advanced-topics)
+- [Troubleshooting](#troubleshooting)
+
 ---
 
 ## Why wt?
@@ -241,127 +252,6 @@ This makes it easy to visually distinguish between multiple VS Code windows when
 
 ---
 
-## Command Reference
-
-### `wt new <branch>`
-
-Create a new worktree.
-
-**Options:**
-- `--from <branch>` - Source branch (default: `origin/main`)
-- `--track` - Set upstream tracking to `origin/<branch>`
-- `--force` - Overwrite empty directory if exists
-
-**Examples:**
-```bash
-wt new feature-x
-wt new hotfix --from origin/v1.2
-wt new experiment --track
-```
-
-### `wt list`
-
-List all worktrees.
-
-**Options:**
-- `--json` - Output as JSON
-
-**Examples:**
-```bash
-wt list
-wt list --json | jq '.[] | select(.branch == "main")'
-```
-
-### `wt status`
-
-Show status of all worktrees with dirty/ahead/behind indicators.
-
-**Options:**
-- `--json` - Output as JSON
-- `--rich` - Use box-drawing table (can be set as default in config)
-
-**Examples:**
-```bash
-wt status
-wt status --rich
-```
-
-### `wt rm <branch>`
-
-Remove a worktree.
-
-**Options:**
-- `--yes` - Skip confirmation prompt
-- `--delete-branch` - Also delete the local branch
-- `--force` - Force deletion even with unpushed commits
-
-**Examples:**
-```bash
-wt rm old-feature --yes
-wt rm merged-feature --yes --delete-branch
-```
-
-### `wt pull-main`
-
-Update all worktrees from the base branch.
-
-**Options:**
-- `--base <branch>` - Base branch (default: from config)
-- `--strategy <rebase|merge|ff-only>` - Update strategy
-- `--stash` - Auto-stash dirty worktrees
-
-**Examples:**
-```bash
-wt pull-main --stash
-wt pull-main --strategy merge
-```
-
-### `wt prune-merged`
-
-Remove worktrees for branches merged into base.
-
-**Options:**
-- `--base <branch>` - Base branch to check against
-- `--protected <branches...>` - Additional protected branches
-- `--yes` - Skip confirmation prompt
-- `--delete-branch` - Also delete local branches
-
-**Examples:**
-```bash
-wt prune-merged --yes
-wt prune-merged --delete-branch --yes
-```
-
-### `wt where <branch>`
-
-Print the path to a worktree (useful for scripting).
-
-**Examples:**
-```bash
-cd $(wt where my-feature)
-code $(wt where my-feature)
-```
-
-### `wt gc`
-
-Clean up stale worktree entries and empty directories.
-
-**Examples:**
-```bash
-wt gc
-```
-
-### `wt doctor`
-
-Check configuration and environment health.
-
-**Examples:**
-```bash
-wt doctor
-```
-
----
-
 ## Configuration
 
 Configuration uses TOML with precedence: **CLI args > local > global > defaults**
@@ -414,44 +304,6 @@ custom_title = true
 
 ---
 
-## Understanding Worktrees
-
-### Directory Layout
-
-```
-~/repos/
-├── myproject/              # Main repo (bare worktree)
-└── myproject-worktrees/    # Managed by wt
-    ├── feature-a/          # Worktree for feature-a branch
-    ├── feature-b/          # Worktree for feature-b branch
-    └── hotfix/             # Worktree for hotfix branch
-```
-
-Each worktree is a **full checkout** of your repo at a specific branch, sharing the same `.git` object store. Commits in any worktree are visible across all worktrees.
-
-### When to Use Worktrees
-
-**Great for:**
-- Parallel feature development
-- Long-running branches (experiments, refactors)
-- PR reviews without context switching
-- Running CI/tests on one branch while working on another
-
-**Maybe not for:**
-- Tiny repos where branch switching is instant
-- Single-branch workflows
-- Situations where disk space is extremely limited
-
-### Worktree Lifecycle
-
-1. **Create** -> `wt new my-feature` (deterministic path, optional hooks)
-2. **Work** -> Make commits, push, create PRs
-3. **Sync** -> `wt pull-main --stash` (keep up to date with base branch)
-4. **Monitor** -> `wt status --rich` (see dirty/ahead/behind at a glance)
-5. **Clean** -> `wt prune-merged --yes` (auto-remove merged branches)
-
----
-
 ## Hooks System
 
 Hooks run in lexicographic order from two locations:
@@ -482,6 +334,22 @@ echo "Repo: $WT_REPO_NAME ($WT_REPO_ROOT)"
 # .wt/hooks/post_create.d/10-install.sh
 npm install
 ```
+
+**Open worktree in editor:**
+```bash
+#!/bin/bash
+# ~/.config/wt/hooks/post_create.d/02_open.sh
+cursor .
+```
+
+Make it executable:
+```bash
+chmod +x ~/.config/wt/hooks/post_create.d/02_open.sh
+```
+
+You can use any editor: `code .` for VS Code, `nvim .` for Neovim, etc.
+
+**Note:** On Windows, use a `.bat` or `.cmd` file instead, or ensure you have Git Bash installed to run `.sh` scripts.
 
 **Create feature branch tracking:**
 ```python
@@ -574,43 +442,6 @@ Ensure paths don't contain special shell characters. Quote template variables if
 
 ---
 
-## Design Philosophy
-
-- **No runtime dependencies** - Python stdlib only (>=3.11 for `tomllib`)
-- **No prompts** - Fully scriptable, deterministic behavior
-- **Git plumbing** - Shell out to git via `subprocess`, no `pygit2`
-- **Fast feedback** - Minimal output unless `--rich` requested
-- **Safe defaults** - Protected branches, unpushed commit checks, confirmation prompts for destructive actions
-
----
-
-## Contributing
-
-`wt` is a small, focused tool. Contributions welcome for:
-- Bug fixes
-- Performance improvements
-- Expanded test coverage
-- Documentation improvements
-
-**Not in scope:**
-- Interactive TUI modes
-- Non-git VCS support
-- Heavy external dependencies
-
----
-
 ## License
 
 MIT
-
----
-
-## Related Tools
-
-- [git-worktree(1)](https://git-scm.com/docs/git-worktree) - The underlying git command
-- [git-workspace](https://github.com/orf/git-workspace) - Alternative with different workflow
-- [worktree.nvim](https://github.com/ThePrimeagen/git-worktree.nvim) - Neovim integration
-
----
-
-**Built with care for developers who work on multiple branches simultaneously.**

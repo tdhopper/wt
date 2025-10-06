@@ -408,18 +408,38 @@ def cmd_doctor(args, cfg, repo_root):
     # Check hooks
     hook_dir = cfg["hooks"]["post_create_dir"]
 
-    local_hooks = []
-    if local_config.exists():
-        local_hooks = hooks.discover_hooks(local_config, global_config, hook_dir)
+    all_hooks = hooks.discover_hooks(
+        local_config if local_config.exists() else None,
+        global_config,
+        hook_dir
+    )
 
-    global_hooks = hooks.discover_hooks(None, global_config, hook_dir)
+    if all_hooks:
+        # Count local vs global by checking paths
+        local_hook_dir = local_config.parent / hook_dir if local_config.exists() else None
+        global_hook_dir = global_config.parent / hook_dir
 
-    if local_hooks or global_hooks:
-        print(f"✓ Found {len(local_hooks)} local + {len(global_hooks)} global hooks")
-        for hook in local_hooks + global_hooks:
+        local_count = sum(1 for h in all_hooks if local_hook_dir and h.is_relative_to(local_hook_dir))
+        global_count = sum(1 for h in all_hooks if h.is_relative_to(global_hook_dir))
+
+        print(f"✓ Found {local_count} local + {global_count} global hooks")
+        for hook in all_hooks:
             print(f"  - {hook}")
     else:
         print(f"  No hooks configured (optional)")
+
+    # Check for non-executable hooks
+    non_executable = hooks.find_non_executable_hooks(
+        local_config if local_config.exists() else None,
+        global_config,
+        hook_dir
+    )
+    if non_executable:
+        print(f"✗ Found {len(non_executable)} non-executable hook(s):")
+        for hook in non_executable:
+            print(f"  - {hook}")
+            print(f"    Fix: chmod +x {hook}")
+        issues.append(f"{len(non_executable)} hooks are not executable")
 
     # Summary
     print()
