@@ -2,7 +2,23 @@
 
 from pathlib import Path
 import subprocess
+import sys
 from typing import NamedTuple
+
+
+# Global verbose flag
+_VERBOSE = False
+
+
+def set_verbose(enabled: bool) -> None:
+    """Enable or disable verbose mode for git commands.
+
+    Args:
+        enabled: If True, print git commands to stdout before executing
+
+    """
+    global _VERBOSE  # noqa: PLW0603
+    _VERBOSE = enabled
 
 
 class GitError(Exception):
@@ -34,6 +50,10 @@ def git(*args: str, cwd: Path, check: bool = True) -> str:
         GitError: If command fails and check=True
 
     """
+    if _VERBOSE:
+        cmd_str = " ".join(["git", *args])
+        print(f"+ {cmd_str}", file=sys.stderr, flush=True)
+
     try:
         result = subprocess.run(
             ["git", *args],

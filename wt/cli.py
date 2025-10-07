@@ -605,6 +605,9 @@ def main():  # noqa: PLR0915, PLR0912
 
     parser.add_argument("--repo", type=Path, help="Repository path (default: auto-discover)")
     parser.add_argument("--config", type=Path, help="Config file override")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Print git commands as they are executed"
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
@@ -690,6 +693,10 @@ def main():  # noqa: PLR0915, PLR0912
     if not args.command:
         parser.print_help()
         sys.exit(1)
+
+    # Enable verbose mode if requested
+    if args.verbose:
+        gitutil.set_verbose(True)
 
     # Discover repo root (except for doctor which handles errors)
     try:
