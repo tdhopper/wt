@@ -386,7 +386,7 @@ This gives repo-specific hooks priority to run before global hooks.
 
 **Supported:**
 - Shell scripts: `*.sh`
-- Python scripts: `*.py`
+- Python scripts: `*.py` (run with `uv run`, supports [inline script metadata](https://docs.astral.sh/uv/guides/scripts/#creating-a-python-script))
 - Any executable
 
 > [!TIP]
