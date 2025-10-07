@@ -56,6 +56,8 @@ wt prune-merged --yes
 > [!IMPORTANT]
 > Requires Python ≥3.11 (for native TOML support via `tomllib`)
 
+[Install uv](https://docs.astral.sh/uv/getting-started/installation/), then run:
+
 ```bash
 uv tool install wt-cli
 
