@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import sys
 
 
 def calculate_luminance(hex_color: str) -> float:
@@ -27,6 +28,7 @@ def calculate_luminance(hex_color: str) -> float:
 
     Returns:
         Relative luminance (0.0 to 1.0)
+
     """
     # Convert hex to RGB
     r = int(hex_color[0:2], 16) / 255
@@ -55,6 +57,7 @@ def generate_branch_color(branch_name: str) -> str:
 
     Returns:
         6-character hex color string (without #)
+
     """
     hash_obj = hashlib.sha256(branch_name.encode())
     return hash_obj.hexdigest()[:6]
@@ -71,6 +74,7 @@ def get_contrasting_text_color(bg_color: str) -> str:
 
     Returns:
         "#ffffff" for white text or "#000000" for black text
+
     """
     luminance = calculate_luminance(bg_color)
     # Use white text for dark backgrounds, black for light backgrounds
@@ -122,4 +126,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())
