@@ -12,3 +12,6 @@ uv.toml
 
 # wt-specific
 .wt/
+
+# ai
+.claude/
