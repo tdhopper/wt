@@ -24,8 +24,8 @@ def cmd_new(args, cfg, repo_root):
     print("Fetching from origin...", flush=True)
     gitutil.fetch_origin(repo_root)
 
-    # Resolve source branch (auto-detect if default was used)
-    source_branch = args.from_branch
+    # Resolve source branch (use config if not specified)
+    source_branch = args.from_branch or cfg["update"]["base"]
     if source_branch == "origin/main":
         source_branch = gitutil.get_default_branch(repo_root)
 
@@ -609,7 +609,7 @@ def main():  # noqa: PLR0915, PLR0912
     parser_new = subparsers.add_parser("new", help="Create a new worktree")
     parser_new.add_argument("branch", help="Branch name")
     parser_new.add_argument(
-        "--from", dest="from_branch", default="origin/main", help="Source branch"
+        "--from", dest="from_branch", default=None, help="Source branch (default: from config)"
     )
     parser_new.add_argument("--track", action="store_true", help="Set upstream tracking")
     parser_new.add_argument("--force", action="store_true", help="Force creation, remove empty dir")
