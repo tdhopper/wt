@@ -291,7 +291,21 @@ def fetch_origin(repo_root: Path) -> None:
         GitError: If fetch fails
 
     """
-    git("fetch", "origin", "--prune", cwd=repo_root)
+    try:
+        git("fetch", "origin", "--prune", cwd=repo_root)
+    except GitError as e:
+        error_msg = str(e).lower()
+        if "would clobber" in error_msg or "[rejected]" in error_msg:
+            # Most commonly this is a tag conflict, but could be other ref rejections
+            raise GitError(
+                "Fetch rejected due to conflicting refs (likely tags). A ref exists locally and remotely but points to different commits.\n\n"
+                "To resolve, run one of these commands in your repository:\n"
+                "  1. Update tags forcefully: git fetch origin --tags --force\n"
+                "  2. Delete conflicting local tags: git tag -d <tag-name>\n"
+                "  3. Skip tag syncing: git config remote.origin.tagOpt --no-tags\n\n"
+                f"Original error: {e}"
+            ) from e
+        raise
 
 
 def list_merged_branches(repo_root: Path, base: str) -> list[str]:
