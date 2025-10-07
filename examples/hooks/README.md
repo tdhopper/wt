@@ -29,7 +29,6 @@ chmod +x .wt/hooks/post_create.d/01-npm-install.sh
 ### Node.js / JavaScript
 
 - **01-npm-install.sh** - Automatically run `npm install` in new worktrees
-- **03-open-vscode.sh** - Open worktree in VS Code (or customize for other editors)
 - **07-run-tests.sh** - Run test suite to verify the worktree
 
 ### Python
@@ -52,6 +51,11 @@ chmod +x .wt/hooks/post_create.d/01-npm-install.sh
 ### Notifications
 
 - **08-notify.sh** - Send desktop notification when worktree is ready (macOS/Linux)
+
+### Editor Integration
+
+- **03-open-vscode.sh** - Open worktree in VS Code (or customize for other editors)
+- **09-vscode-settings.py** - Create VS Code settings with colored borders and custom titles for visual worktree distinction
 
 ## Customization
 

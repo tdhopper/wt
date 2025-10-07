@@ -286,16 +286,17 @@ wt new my-feature
 
 ### Make VS Code windows visually distinct
 
-Enable automatic creation of VS Code settings to make each worktree window unique:
+Use the example hook to automatically create VS Code settings that make each worktree window unique:
 
-```toml
-[vscode]
-create_settings = true
-color_borders = true     # Deterministic colored borders per branch
-custom_title = true      # Show repo name + branch in title bar
+```bash
+# Copy the VS Code settings hook to your hooks directory
+cp examples/hooks/09-vscode-settings.py ~/.config/wt/hooks/post_create.d/
+
+# Or for a specific repo
+cp examples/hooks/09-vscode-settings.py .wt/hooks/post_create.d/
 ```
 
-When enabled, `wt new` creates `.vscode/settings.json` with:
+This hook creates `.vscode/settings.json` in new worktrees with:
 - **Colored window borders** - Each branch gets a unique color (generated from branch name hash)
 - **Custom window title** - Shows `{repo_name} | {branch_name}` instead of just the path
 
@@ -340,11 +341,6 @@ delete_branch_with_worktree = false
 [ui]
 rich = false
 json_indent = 2
-
-[vscode]
-create_settings = false
-color_borders = true
-custom_title = true
 ```
 
 ### Default Behavior
