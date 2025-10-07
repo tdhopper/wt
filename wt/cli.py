@@ -24,8 +24,8 @@ def cmd_new(args, cfg, repo_root):
     print("Fetching from origin...", flush=True)
     gitutil.fetch_origin(repo_root)
 
-    # Resolve source branch (auto-detect if default was used)
-    source_branch = args.from_branch
+    # Resolve source branch (use config if not specified)
+    source_branch = args.from_branch or cfg["update"]["base"]
     if source_branch == "origin/main":
         source_branch = gitutil.get_default_branch(repo_root)
 
@@ -64,7 +64,10 @@ def cmd_new(args, cfg, repo_root):
     create_branch = not gitutil.branch_exists(git_branch_name, repo_root)
 
     # Create worktree (using git branch name)
-    print(f"Creating worktree for '{git_branch_name}' at {worktree_path}...", flush=True)
+    print(
+        f"Creating worktree for '{git_branch_name}' from '{source_branch}' at {worktree_path}...",
+        flush=True,
+    )
     gitutil.create_worktree(repo_root, worktree_path, git_branch_name, source_branch, create_branch)
 
     # Set upstream tracking if requested
@@ -602,6 +605,9 @@ def main():  # noqa: PLR0915, PLR0912
 
     parser.add_argument("--repo", type=Path, help="Repository path (default: auto-discover)")
     parser.add_argument("--config", type=Path, help="Config file override")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Print git commands as they are executed"
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
@@ -609,7 +615,7 @@ def main():  # noqa: PLR0915, PLR0912
     parser_new = subparsers.add_parser("new", help="Create a new worktree")
     parser_new.add_argument("branch", help="Branch name")
     parser_new.add_argument(
-        "--from", dest="from_branch", default="origin/main", help="Source branch"
+        "--from", dest="from_branch", default=None, help="Source branch (default: from config)"
     )
     parser_new.add_argument("--track", action="store_true", help="Set upstream tracking")
     parser_new.add_argument("--force", action="store_true", help="Force creation, remove empty dir")
@@ -687,6 +693,10 @@ def main():  # noqa: PLR0915, PLR0912
     if not args.command:
         parser.print_help()
         sys.exit(1)
+
+    # Enable verbose mode if requested
+    if args.verbose:
+        gitutil.set_verbose(True)
 
     # Discover repo root (except for doctor which handles errors)
     try:

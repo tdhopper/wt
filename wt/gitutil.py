@@ -2,7 +2,23 @@
 
 from pathlib import Path
 import subprocess
+import sys
 from typing import NamedTuple
+
+
+# Global verbose flag
+_VERBOSE = False
+
+
+def set_verbose(enabled: bool) -> None:
+    """Enable or disable verbose mode for git commands.
+
+    Args:
+        enabled: If True, print git commands to stdout before executing
+
+    """
+    global _VERBOSE  # noqa: PLW0603
+    _VERBOSE = enabled
 
 
 class GitError(Exception):
@@ -34,6 +50,10 @@ def git(*args: str, cwd: Path, check: bool = True) -> str:
         GitError: If command fails and check=True
 
     """
+    if _VERBOSE:
+        cmd_str = " ".join(["git", *args])
+        print(f"+ {cmd_str}", file=sys.stderr, flush=True)
+
     try:
         result = subprocess.run(
             ["git", *args],
@@ -291,7 +311,21 @@ def fetch_origin(repo_root: Path) -> None:
         GitError: If fetch fails
 
     """
-    git("fetch", "origin", "--prune", cwd=repo_root)
+    try:
+        git("fetch", "origin", "--prune", cwd=repo_root)
+    except GitError as e:
+        error_msg = str(e).lower()
+        if "would clobber" in error_msg or "[rejected]" in error_msg:
+            # Most commonly this is a tag conflict, but could be other ref rejections
+            raise GitError(
+                "Fetch rejected due to conflicting refs (likely tags). A ref exists locally and remotely but points to different commits.\n\n"
+                "To resolve, run one of these commands in your repository:\n"
+                "  1. Update tags forcefully: git fetch origin --tags --force\n"
+                "  2. Delete conflicting local tags: git tag -d <tag-name>\n"
+                "  3. Skip tag syncing: git config remote.origin.tagOpt --no-tags\n\n"
+                f"Original error: {e}"
+            ) from e
+        raise
 
 
 def list_merged_branches(repo_root: Path, base: str) -> list[str]:
