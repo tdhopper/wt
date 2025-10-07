@@ -55,8 +55,7 @@ wt prune-merged --yes
 > Requires Python ≥3.11 (for native TOML support via `tomllib`)
 
 ```bash
-# Install from source
-uv tool install -e .
+uv tool install wt-cli
 
 # Verify installation
 wt doctor
