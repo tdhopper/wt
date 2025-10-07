@@ -24,7 +24,13 @@ def discover_repo_root(start: Path | None = None) -> Path:
         RepoDiscoveryError: If not in a git repository
 
     """
-    cwd = start or Path.cwd()
+    try:
+        cwd = start or Path.cwd()
+    except FileNotFoundError:
+        raise RepoDiscoveryError(
+            "Current directory does not exist (was it deleted?). "
+            "Use --repo to specify a repository path or cd to a valid directory."
+        ) from None
 
     try:
         # Get the common git directory (works in both main repo and worktrees)
