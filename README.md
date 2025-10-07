@@ -1,3 +1,5 @@
+![](https://img.shields.io/pypi/v/wt-cli)
+
 <div align="center">
   <img src="https://tdhopper.com/images/wt.png" alt="wt logo" width="200">
   <h1>wt</h1>
