@@ -98,6 +98,14 @@ def cmd_new(args, cfg, repo_root):
         print(f"Error running hooks: {e}", file=sys.stderr)
         sys.exit(1)
 
+    # Print success message and next steps
+    print("\nWorktree created successfully!")
+    print("\nTo navigate to the worktree:")
+    if sys.platform == "win32":
+        print(f"  cd /d {worktree_path}")
+    else:
+        print(f"  cd {worktree_path}")
+    print()
     print(worktree_path)
 
 
