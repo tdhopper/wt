@@ -1,4 +1,4 @@
-![](https://img.shields.io/pypi/v/wt-cli)
+![https://pypi.org/project/wt-cli/](https://img.shields.io/pypi/v/wt-cli)
 
 <div align="center">
   <img src="https://tdhopper.com/images/wt.png" alt="wt logo" width="200">
