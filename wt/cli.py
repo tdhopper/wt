@@ -64,7 +64,10 @@ def cmd_new(args, cfg, repo_root):
     create_branch = not gitutil.branch_exists(git_branch_name, repo_root)
 
     # Create worktree (using git branch name)
-    print(f"Creating worktree for '{git_branch_name}' at {worktree_path}...", flush=True)
+    print(
+        f"Creating worktree for '{git_branch_name}' from '{source_branch}' at {worktree_path}...",
+        flush=True,
+    )
     gitutil.create_worktree(repo_root, worktree_path, git_branch_name, source_branch, create_branch)
 
     # Set upstream tracking if requested
