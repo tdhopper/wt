@@ -204,8 +204,8 @@ def _run_hook(hook_path: Path, cwd: Path, env: dict[str, str], timeout: int) -> 
         shell = "bash" if _command_exists("bash") else "sh"
         cmd = [shell, str(hook_path)]
     elif hook_path.suffix == ".py":
-        # Run with python
-        cmd = ["python", str(hook_path)]
+        # Run with uv run
+        cmd = ["uv", "run", str(hook_path)]
     else:
         # Run directly (must be executable)
         cmd = [str(hook_path)]
