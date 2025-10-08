@@ -19,7 +19,7 @@ def cmd_new(args, cfg, repo_root):  # noqa: PLR0912, PLR0915
 
         # Get current branch
         current_branch = gitutil.get_current_branch(repo_root)
-        if not current_branch:
+        if not current_branch or current_branch == "HEAD":
             print("Error: Not on a branch (detached HEAD)", file=sys.stderr)
             sys.exit(1)
 
@@ -76,14 +76,22 @@ def cmd_new(args, cfg, repo_root):  # noqa: PLR0912, PLR0915
             sys.exit(1)
 
     # Check if branch already has a worktree (using git branch name)
+    # For --from-current, we'll handle the main repo checkout below
     existing_path = gitutil.worktree_path_for_branch(git_branch_name, repo_root)
     if existing_path:
-        print(
-            f"Error: Branch '{git_branch_name}' is already checked out at: {existing_path}",
-            file=sys.stderr,
-        )
-        print("       Git does not allow the same branch in multiple worktrees", file=sys.stderr)
-        sys.exit(1)
+        # If using --from-current and the existing worktree is the main repo, that's expected
+        if args.from_current and existing_path == repo_root:
+            # We'll switch the main repo away from this branch after creating the worktree
+            pass
+        else:
+            print(
+                f"Error: Branch '{git_branch_name}' is already checked out at: {existing_path}",
+                file=sys.stderr,
+            )
+            print(
+                "       Git does not allow the same branch in multiple worktrees", file=sys.stderr
+            )
+            sys.exit(1)
 
     # Resolve worktree path (using folder branch name without prefix)
     worktree_path = paths.resolve_worktree_path(repo_root, folder_branch_name, source_branch, cfg)
@@ -103,6 +111,24 @@ def cmd_new(args, cfg, repo_root):  # noqa: PLR0912, PLR0915
 
     # Check if branch exists (using git branch name)
     create_branch = not gitutil.branch_exists(git_branch_name, repo_root) and not args.from_current
+
+    # For --from-current, we need to first switch the main repo to a different branch
+    # so that we can create a worktree for the current branch
+    base_branch_name = None
+    if args.from_current and existing_path == repo_root:
+        # Determine the base branch to switch to
+        base_ref = cfg["update"]["base"]
+        if base_ref == "origin/main":
+            base_ref = gitutil.get_default_branch(repo_root)
+        # Extract branch name from origin/main -> main
+        base_branch_name = base_ref.split("/")[-1] if "/" in base_ref else base_ref
+
+        print(f"Switching main repo to {base_branch_name}...", flush=True)
+        try:
+            gitutil.git("checkout", base_branch_name, cwd=repo_root)
+        except gitutil.GitError as e:
+            print(f"Error: Failed to switch main repo to {base_branch_name}: {e}", file=sys.stderr)
+            sys.exit(1)
 
     # Create worktree (using git branch name)
     print(

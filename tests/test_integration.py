@@ -1,5 +1,6 @@
 """Integration tests for wt - tests actual git operations and workflows."""
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -245,3 +246,67 @@ def test_new_worktree_with_existing_branch_not_detached(git_repo):
     assert (
         "existing-branch" in status_result.stdout
     ), f"Worktree should be on existing-branch, got: {status_result.stdout}"
+
+
+def test_new_from_current_moves_branch_to_worktree(git_repo):
+    """--from-current should move current branch to a new worktree."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create a branch and make a commit on it (simulating accidental work on main)
+    subprocess.run(["git", "checkout", "-b", "accidental-branch"], cwd=repo, check=True)
+    (repo / "accident.txt").write_text("oops")
+    subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Accidental work"], cwd=repo, check=True, capture_output=True
+    )
+
+    # Use --from-current to move this branch to a worktree
+    result = run_wt(["new", "--from-current"], repo, fake_home, capture_output=True, text=True)
+
+    assert result.returncode == 0, f"Failed: {result.stderr}"
+
+    # Verify worktree was created for accidental-branch
+    list_result = run_wt(
+        ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
+    )
+    worktrees = json.loads(list_result.stdout)
+    found = False
+    for wt in worktrees:
+        if wt["branch"] and "accidental-branch" in wt["branch"]:
+            found = True
+            wt_path = Path(wt["path"])
+            assert wt_path.exists()
+            # Verify the commit is there
+            assert (wt_path / "accident.txt").exists()
+            break
+
+    assert found, "accidental-branch worktree not found"
+
+
+def test_new_from_current_errors_on_detached_head(git_repo):
+    """--from-current should error when in detached HEAD state."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Detach HEAD
+    subprocess.run(["git", "checkout", "HEAD~0"], cwd=repo, check=True, capture_output=True)
+
+    # Try to use --from-current
+    result = run_wt(["new", "--from-current"], repo, fake_home, capture_output=True, text=True)
+
+    assert result.returncode != 0, "Should fail when in detached HEAD"
+    assert "detached HEAD" in result.stderr or "Not on a branch" in result.stderr
+
+
+def test_new_from_current_errors_with_branch_arg(git_repo):
+    """--from-current should error when branch argument is also provided."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    result = run_wt(
+        ["new", "some-branch", "--from-current"], repo, fake_home, capture_output=True, text=True
+    )
+
+    assert result.returncode != 0, "Should fail when both branch and --from-current provided"
+    assert "Cannot specify both" in result.stderr
