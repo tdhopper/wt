@@ -9,40 +9,89 @@ import sys
 from . import config, gitutil, hooks, lock, paths, status, table
 
 
-def cmd_new(args, cfg, repo_root):
+def cmd_new(args, cfg, repo_root):  # noqa: PLR0912, PLR0915
     """Create a new worktree."""
-    # Keep original branch name for folder path
-    folder_branch_name = args.branch
+    # Handle --from-current flag
+    if args.from_current:
+        if args.branch:
+            print("Error: Cannot specify both branch name and --from-current", file=sys.stderr)
+            sys.exit(1)
 
-    # Apply auto_prefix for git branch name
-    git_branch_name = args.branch
-    auto_prefix = cfg["branches"]["auto_prefix"]
-    if auto_prefix and not git_branch_name.startswith(auto_prefix):
-        git_branch_name = auto_prefix + git_branch_name
+        # Get current branch
+        current_branch = gitutil.get_current_branch(repo_root)
+        if not current_branch or current_branch == "HEAD":
+            print("Error: Not on a branch (detached HEAD)", file=sys.stderr)
+            sys.exit(1)
+
+        # Check if we're in the main repo (not a worktree)
+        worktrees = gitutil.list_worktrees(repo_root)
+        current_path = Path.cwd()
+        for wt in worktrees:
+            if not wt.is_bare and current_path == wt.path and wt.branch == current_branch:
+                if wt.path != repo_root:
+                    print(
+                        f"Error: Already in a worktree at {wt.path}",
+                        file=sys.stderr,
+                    )
+                    print(
+                        "       Use --from-current only from the main repository",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+                break
+
+        # Use current branch as the branch name
+        folder_branch_name = current_branch
+        git_branch_name = current_branch
+    else:
+        if not args.branch:
+            print("Error: Branch name required (or use --from-current)", file=sys.stderr)
+            sys.exit(1)
+
+        # Keep original branch name for folder path
+        folder_branch_name = args.branch
+
+        # Apply auto_prefix for git branch name
+        git_branch_name = args.branch
+        auto_prefix = cfg["branches"]["auto_prefix"]
+        if auto_prefix and not git_branch_name.startswith(auto_prefix):
+            git_branch_name = auto_prefix + git_branch_name
 
     # Fetch origin
     print("Fetching from origin...", flush=True)
     gitutil.fetch_origin(repo_root)
 
     # Resolve source branch (use config if not specified)
-    source_branch = args.from_branch or cfg["update"]["base"]
-    if source_branch == "origin/main":
-        source_branch = gitutil.get_default_branch(repo_root)
+    if args.from_current:
+        # For --from-current, use current branch as source (it's already created)
+        source_branch = git_branch_name
+    else:
+        source_branch = args.from_branch or cfg["update"]["base"]
+        if source_branch == "origin/main":
+            source_branch = gitutil.get_default_branch(repo_root)
 
-    # Check if source branch exists
-    if not gitutil.remote_ref_exists(source_branch, repo_root):
-        print(f"Error: Source branch '{source_branch}' does not exist", file=sys.stderr)
-        sys.exit(1)
+        # Check if source branch exists
+        if not gitutil.remote_ref_exists(source_branch, repo_root):
+            print(f"Error: Source branch '{source_branch}' does not exist", file=sys.stderr)
+            sys.exit(1)
 
     # Check if branch already has a worktree (using git branch name)
+    # For --from-current, we'll handle the main repo checkout below
     existing_path = gitutil.worktree_path_for_branch(git_branch_name, repo_root)
     if existing_path:
-        print(
-            f"Error: Branch '{git_branch_name}' is already checked out at: {existing_path}",
-            file=sys.stderr,
-        )
-        print("       Git does not allow the same branch in multiple worktrees", file=sys.stderr)
-        sys.exit(1)
+        # If using --from-current and the existing worktree is the main repo, that's expected
+        if args.from_current and existing_path == repo_root:
+            # We'll switch the main repo away from this branch after creating the worktree
+            pass
+        else:
+            print(
+                f"Error: Branch '{git_branch_name}' is already checked out at: {existing_path}",
+                file=sys.stderr,
+            )
+            print(
+                "       Git does not allow the same branch in multiple worktrees", file=sys.stderr
+            )
+            sys.exit(1)
 
     # Resolve worktree path (using folder branch name without prefix)
     worktree_path = paths.resolve_worktree_path(repo_root, folder_branch_name, source_branch, cfg)
@@ -61,7 +110,25 @@ def cmd_new(args, cfg, repo_root):
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Check if branch exists (using git branch name)
-    create_branch = not gitutil.branch_exists(git_branch_name, repo_root)
+    create_branch = not gitutil.branch_exists(git_branch_name, repo_root) and not args.from_current
+
+    # For --from-current, we need to first switch the main repo to a different branch
+    # so that we can create a worktree for the current branch
+    base_branch_name = None
+    if args.from_current and existing_path == repo_root:
+        # Determine the base branch to switch to
+        base_ref = cfg["update"]["base"]
+        if base_ref == "origin/main":
+            base_ref = gitutil.get_default_branch(repo_root)
+        # Extract branch name from origin/main -> main
+        base_branch_name = base_ref.split("/")[-1] if "/" in base_ref else base_ref
+
+        print(f"Switching main repo to {base_branch_name}...", flush=True)
+        try:
+            gitutil.git("checkout", base_branch_name, cwd=repo_root)
+        except gitutil.GitError as e:
+            print(f"Error: Failed to switch main repo to {base_branch_name}: {e}", file=sys.stderr)
+            sys.exit(1)
 
     # Create worktree (using git branch name)
     print(
@@ -621,12 +688,17 @@ def main():  # noqa: PLR0915, PLR0912
 
     # new
     parser_new = subparsers.add_parser("new", help="Create a new worktree")
-    parser_new.add_argument("branch", help="Branch name")
+    parser_new.add_argument("branch", nargs="?", help="Branch name")
     parser_new.add_argument(
         "--from",
         dest="from_branch",
         default=None,
         help="Source branch (default: origin/main or configured base)",
+    )
+    parser_new.add_argument(
+        "--from-current",
+        action="store_true",
+        help="Move current branch to a new worktree",
     )
     parser_new.add_argument("--track", action="store_true", help="Set upstream tracking")
     parser_new.add_argument("--force", action="store_true", help="Force creation, remove empty dir")
