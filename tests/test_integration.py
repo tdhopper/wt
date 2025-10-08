@@ -1,5 +1,6 @@
 """Integration tests for wt - tests actual git operations and workflows."""
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -245,3 +246,135 @@ def test_new_worktree_with_existing_branch_not_detached(git_repo):
     assert (
         "existing-branch" in status_result.stdout
     ), f"Worktree should be on existing-branch, got: {status_result.stdout}"
+
+
+def test_rename_worktree_only(git_repo):
+    """Rename command should move worktree to new location."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create worktree
+    run_wt(["new", "old-feature"], repo, fake_home, check=True, capture_output=True)
+
+    # Get original path
+    list_result = run_wt(
+        ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
+    )
+    worktrees = json.loads(list_result.stdout)
+    old_path = None
+    for wt in worktrees:
+        if wt["branch"] and "old-feature" in wt["branch"]:
+            old_path = Path(wt["path"])
+            break
+
+    assert old_path is not None
+    assert old_path.exists()
+
+    # Rename worktree
+    result = run_wt(
+        ["rename", "old-feature", "new-feature"], repo, fake_home, capture_output=True, text=True
+    )
+
+    assert result.returncode == 0, f"Rename failed: {result.stderr}"
+
+    # Verify old path no longer exists
+    assert not old_path.exists(), "Old worktree path should not exist"
+
+    # Verify new path exists
+    list_result = run_wt(
+        ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
+    )
+    worktrees = json.loads(list_result.stdout)
+    new_path = None
+    for wt in worktrees:
+        if wt["branch"] and "old-feature" in wt["branch"]:  # Branch name unchanged
+            new_path = Path(wt["path"])
+            break
+
+    assert new_path is not None, "New worktree path should exist"
+    assert new_path.exists()
+    assert "new-feature" in str(new_path)
+
+
+def test_rename_worktree_and_branch(git_repo):
+    """Rename command with --rename-branch should rename both."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create worktree
+    run_wt(["new", "old-branch"], repo, fake_home, check=True, capture_output=True)
+
+    # Rename both
+    result = run_wt(
+        ["rename", "old-branch", "new-branch", "--rename-branch"],
+        repo,
+        fake_home,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, f"Rename failed: {result.stderr}"
+
+    # Verify branch was renamed
+    branches = subprocess.run(
+        ["git", "branch", "-a"], cwd=repo, capture_output=True, text=True, check=True
+    )
+
+    assert "new-branch" in branches.stdout
+    assert "old-branch" not in branches.stdout or "origin/old-branch" in branches.stdout
+
+    # Verify worktree is on new branch
+    list_result = run_wt(
+        ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
+    )
+    worktrees = json.loads(list_result.stdout)
+    found = False
+    for wt in worktrees:
+        if wt["branch"] and "new-branch" in wt["branch"]:
+            found = True
+            assert "new-branch" in wt["path"]
+            break
+
+    assert found, "New branch not found in worktree list"
+
+
+def test_rename_dry_run(git_repo):
+    """Rename with --dry-run should not actually rename."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create worktree
+    run_wt(["new", "test-feature"], repo, fake_home, check=True, capture_output=True)
+
+    # Get original path
+    list_result = run_wt(
+        ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
+    )
+    worktrees = json.loads(list_result.stdout)
+    old_path = None
+    for wt in worktrees:
+        if wt["branch"] and "test-feature" in wt["branch"]:
+            old_path = Path(wt["path"])
+            break
+
+    # Dry run rename
+    result = run_wt(
+        ["rename", "test-feature", "renamed-feature", "--dry-run"],
+        repo,
+        fake_home,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "Dry run" in result.stdout
+    assert "Move worktree:" in result.stdout
+
+    # Verify nothing changed
+    assert old_path.exists(), "Worktree should still exist at old path"
+
+    # Verify branch unchanged
+    branches = subprocess.run(
+        ["git", "branch", "-a"], cwd=repo, capture_output=True, text=True, check=True
+    )
+    assert "test-feature" in branches.stdout
