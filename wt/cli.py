@@ -343,6 +343,72 @@ def cmd_open(args, cfg, repo_root):
     cmd_where(args, cfg, repo_root)
 
 
+def cmd_rename(args, cfg, repo_root):
+    """Rename a worktree and optionally its branch."""
+    old_branch_name = args.old_branch
+    new_branch_name = args.new_branch
+
+    # Apply auto_prefix if configured
+    auto_prefix = cfg["branches"]["auto_prefix"]
+    if auto_prefix:
+        if not old_branch_name.startswith(auto_prefix):
+            old_branch_name = auto_prefix + old_branch_name
+        if not new_branch_name.startswith(auto_prefix):
+            new_branch_name = auto_prefix + new_branch_name
+
+    # Find old worktree
+    old_path = gitutil.worktree_path_for_branch(old_branch_name, repo_root)
+    if not old_path:
+        print(f"Error: No worktree found for branch '{old_branch_name}'", file=sys.stderr)
+        sys.exit(1)
+
+    # Determine source branch for path template (use same branch it was created from if traceable)
+    # For simplicity, we'll use the current base branch from config
+    source_branch = cfg["update"]["base"]
+    if source_branch == "origin/main":
+        source_branch = gitutil.get_default_branch(repo_root)
+
+    # Resolve new worktree path using folder name without prefix
+    folder_branch_name = args.new_branch
+    new_path = paths.resolve_worktree_path(repo_root, folder_branch_name, source_branch, cfg)
+
+    # Check if new path already exists
+    if new_path.exists() and new_path != old_path:
+        print(f"Error: Directory already exists: {new_path}", file=sys.stderr)
+        sys.exit(1)
+
+    # Check if new branch name already exists
+    if (
+        args.rename_branch
+        and new_branch_name != old_branch_name
+        and gitutil.branch_exists(new_branch_name, repo_root)
+    ):
+        print(f"Error: Branch '{new_branch_name}' already exists", file=sys.stderr)
+        sys.exit(1)
+
+    if args.dry_run:
+        print("Dry run - would perform the following operations:")
+        print(f"  Move worktree: {old_path} → {new_path}")
+        if args.rename_branch and new_branch_name != old_branch_name:
+            print(f"  Rename branch: {old_branch_name} → {new_branch_name}")
+        return
+
+    # Create parent directory for new path
+    new_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Move worktree
+    print(f"Moving worktree from {old_path} to {new_path}...", flush=True)
+    gitutil.move_worktree(repo_root, old_path, new_path)
+
+    # Rename branch if requested
+    if args.rename_branch and new_branch_name != old_branch_name:
+        print(f"Renaming branch from '{old_branch_name}' to '{new_branch_name}'...", flush=True)
+        gitutil.rename_branch(repo_root, old_branch_name, new_branch_name)
+
+    print("Done")
+    print(f"\nNew worktree location: {new_path}")
+
+
 def cmd_gc(_args, cfg, repo_root):
     """Clean up stale worktrees."""
     print("Pruning stale worktree entries...", flush=True)
@@ -674,6 +740,17 @@ def main():  # noqa: PLR0915, PLR0912
     parser_open = subparsers.add_parser("open", help="Print worktree path (alias for where)")
     parser_open.add_argument("branch", help="Branch name")
 
+    # rename
+    parser_rename = subparsers.add_parser("rename", help="Rename a worktree")
+    parser_rename.add_argument("old_branch", help="Current branch name")
+    parser_rename.add_argument("new_branch", help="New branch name")
+    parser_rename.add_argument(
+        "--rename-branch", action="store_true", help="Also rename the git branch"
+    )
+    parser_rename.add_argument(
+        "--dry-run", action="store_true", help="Show what would be done without executing"
+    )
+
     # gc
     subparsers.add_parser("gc", help="Clean up stale worktrees")
 
@@ -740,6 +817,8 @@ def main():  # noqa: PLR0915, PLR0912
             cmd_where(args, cfg, repo_root)
         elif args.command == "open":
             cmd_open(args, cfg, repo_root)
+        elif args.command == "rename":
+            cmd_rename(args, cfg, repo_root)
         elif args.command == "gc":
             cmd_gc(args, cfg, repo_root)
         elif args.command == "doctor":
