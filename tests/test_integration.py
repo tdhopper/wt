@@ -1,5 +1,6 @@
 """Integration tests for wt - tests actual git operations and workflows."""
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -245,3 +246,227 @@ def test_new_worktree_with_existing_branch_not_detached(git_repo):
     assert (
         "existing-branch" in status_result.stdout
     ), f"Worktree should be on existing-branch, got: {status_result.stdout}"
+
+
+def test_rm_dry_run_shows_preview_without_deleting(git_repo):
+    """Rm --dry-run should preview deletion without actually deleting."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create worktree
+    run_wt(["new", "test-rm"], repo, fake_home, check=True, capture_output=True)
+
+    # Get worktree path
+    list_result = run_wt(
+        ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
+    )
+    worktrees = json.loads(list_result.stdout)
+    wt_path = None
+    for wt in worktrees:
+        if wt["branch"] and "test-rm" in wt["branch"]:
+            wt_path = Path(wt["path"])
+            break
+
+    assert wt_path is not None
+    assert wt_path.exists()
+
+    # Dry run remove
+    result = run_wt(["rm", "test-rm", "--dry-run"], repo, fake_home, capture_output=True, text=True)
+
+    assert result.returncode == 0
+    assert "Dry run" in result.stdout
+    assert "Remove worktree at:" in result.stdout
+    assert str(wt_path) in result.stdout
+
+    # Verify worktree still exists
+    assert wt_path.exists(), "Worktree should not have been deleted"
+
+    # Verify branch still exists
+    branches = subprocess.run(
+        ["git", "branch"], cwd=repo, capture_output=True, text=True, check=True
+    )
+    assert "test-rm" in branches.stdout
+
+
+def test_rm_dry_run_with_delete_branch_shows_both_operations(git_repo):
+    """Rm --dry-run --delete-branch should show both worktree and branch deletion."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create worktree
+    run_wt(["new", "test-rm-branch"], repo, fake_home, check=True, capture_output=True)
+
+    # Dry run remove with branch deletion
+    result = run_wt(
+        ["rm", "test-rm-branch", "--delete-branch", "--dry-run"],
+        repo,
+        fake_home,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "Dry run" in result.stdout
+    assert "Remove worktree at:" in result.stdout
+    assert "Delete branch:" in result.stdout
+
+    # Verify branch still exists
+    branches = subprocess.run(
+        ["git", "branch"], cwd=repo, capture_output=True, text=True, check=True
+    )
+    assert "test-rm-branch" in branches.stdout
+
+
+def test_rm_dry_run_shows_unpushed_commits_warning(git_repo):
+    """Rm --dry-run --delete-branch should show unpushed commits warning."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create worktree with a commit
+    run_wt(["new", "unpushed"], repo, fake_home, check=True, capture_output=True)
+
+    list_result = run_wt(
+        ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
+    )
+    worktrees = json.loads(list_result.stdout)
+    wt_path = None
+    for wt in worktrees:
+        if wt["branch"] and "unpushed" in wt["branch"]:
+            wt_path = Path(wt["path"])
+            break
+
+    # Add a commit
+    (wt_path / "test.txt").write_text("test")
+    subprocess.run(["git", "add", "."], cwd=wt_path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Test commit"], cwd=wt_path, check=True, capture_output=True
+    )
+
+    # Dry run remove with branch deletion
+    result = run_wt(
+        ["rm", "unpushed", "--delete-branch", "--dry-run"],
+        repo,
+        fake_home,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "Dry run" in result.stdout
+    assert "Error:" in result.stdout
+    assert "unpushed commits" in result.stdout
+
+
+def test_prune_merged_dry_run_shows_preview(git_repo):
+    """prune-merged --dry-run should preview without actually pruning."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create and merge a branch
+    run_wt(["new", "to-merge"], repo, fake_home, check=True, capture_output=True)
+
+    list_result = run_wt(
+        ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
+    )
+    worktrees = json.loads(list_result.stdout)
+    wt_path = None
+    for wt in worktrees:
+        if wt["branch"] and "to-merge" in wt["branch"]:
+            wt_path = Path(wt["path"])
+            break
+
+    # Add and commit a change
+    (wt_path / "merged.txt").write_text("merged")
+    subprocess.run(["git", "add", "."], cwd=wt_path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Merged change"], cwd=wt_path, check=True, capture_output=True
+    )
+
+    # Merge into main
+    subprocess.run(["git", "checkout", "main"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "merge", "--no-ff", "to-merge", "-m", "Merge to-merge"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+    # Push the merge to origin so it's considered merged
+    subprocess.run(["git", "push", "origin", "main"], cwd=repo, check=True, capture_output=True)
+
+    # Dry run prune
+    result = run_wt(["prune-merged", "--dry-run"], repo, fake_home, capture_output=True, text=True)
+
+    assert result.returncode == 0
+    assert "Found" in result.stdout
+    assert "merged branches" in result.stdout
+    assert "to-merge" in result.stdout
+    assert "Dry run" in result.stdout
+    assert "Remove worktree for" in result.stdout
+
+    # Verify worktree still exists
+    assert wt_path.exists(), "Worktree should not have been deleted"
+
+    # Verify branch still exists
+    branches = subprocess.run(
+        ["git", "branch"], cwd=repo, capture_output=True, text=True, check=True
+    )
+    assert "to-merge" in branches.stdout
+
+
+def test_prune_merged_dry_run_with_delete_branch(git_repo):
+    """prune-merged --dry-run --delete-branch should show branch deletion."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create and merge a branch
+    run_wt(["new", "to-prune"], repo, fake_home, check=True, capture_output=True)
+
+    list_result = run_wt(
+        ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
+    )
+    worktrees = json.loads(list_result.stdout)
+    wt_path = None
+    for wt in worktrees:
+        if wt["branch"] and "to-prune" in wt["branch"]:
+            wt_path = Path(wt["path"])
+            break
+
+    # Add and commit a change
+    (wt_path / "pruned.txt").write_text("pruned")
+    subprocess.run(["git", "add", "."], cwd=wt_path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Pruned change"], cwd=wt_path, check=True, capture_output=True
+    )
+
+    # Merge into main
+    subprocess.run(["git", "checkout", "main"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "merge", "--no-ff", "to-prune", "-m", "Merge to-prune"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+    # Push the merge to origin so it's considered merged
+    subprocess.run(["git", "push", "origin", "main"], cwd=repo, check=True, capture_output=True)
+
+    # Dry run prune with branch deletion
+    result = run_wt(
+        ["prune-merged", "--delete-branch", "--dry-run"],
+        repo,
+        fake_home,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "Dry run" in result.stdout
+    assert "Remove worktree for" in result.stdout
+    assert "Delete branch:" in result.stdout
+
+    # Verify branch still exists
+    branches = subprocess.run(
+        ["git", "branch"], cwd=repo, capture_output=True, text=True, check=True
+    )
+    assert "to-prune" in branches.stdout
