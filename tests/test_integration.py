@@ -1,5 +1,6 @@
 """Integration tests for wt - tests actual git operations and workflows."""
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -245,3 +246,173 @@ def test_new_worktree_with_existing_branch_not_detached(git_repo):
     assert (
         "existing-branch" in status_result.stdout
     ), f"Worktree should be on existing-branch, got: {status_result.stdout}"
+
+
+def test_tree_shows_flat_structure(git_repo):
+    """Tree command should show flat structure when all branches from main."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create two worktrees with commits so they show in tree
+    run_wt(["new", "feature-a"], repo, fake_home, check=True, capture_output=True)
+    run_wt(["new", "feature-b"], repo, fake_home, check=True, capture_output=True)
+
+    # Get worktree paths and add commits
+    list_result = run_wt(
+        ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
+    )
+    worktrees = json.loads(list_result.stdout)
+
+    for wt in worktrees:
+        if wt["branch"] and "feature-" in wt["branch"]:
+            wt_path = Path(wt["path"])
+            (wt_path / "file.txt").write_text("test")
+            subprocess.run(["git", "add", "."], cwd=wt_path, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "commit", "-m", "Add file"], cwd=wt_path, check=True, capture_output=True
+            )
+
+    # Run tree command
+    result = run_wt(["tree"], repo, fake_home, capture_output=True, text=True, check=True)
+
+    # Should show main as root with both features as children
+    assert "main" in result.stdout
+    assert "feature-a" in result.stdout
+    assert "feature-b" in result.stdout
+    # Should use ASCII tree characters
+    assert "├──" in result.stdout or "└──" in result.stdout
+
+
+def test_tree_shows_nested_structure(git_repo):
+    """Tree command should show nested structure for stacked branches."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create first worktree
+    run_wt(["new", "feature-a"], repo, fake_home, check=True, capture_output=True)
+
+    # Get feature-a path
+    list_result = run_wt(
+        ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
+    )
+    worktrees = json.loads(list_result.stdout)
+    feature_a_path = None
+    for wt in worktrees:
+        if wt["branch"] and "feature-a" in wt["branch"]:
+            feature_a_path = Path(wt["path"])
+            break
+
+    # Create a commit in feature-a
+    (feature_a_path / "a.txt").write_text("a")
+    subprocess.run(["git", "add", "."], cwd=feature_a_path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Add a"], cwd=feature_a_path, check=True, capture_output=True
+    )
+
+    # Create feature-b from feature-a
+    run_wt(
+        ["new", "feature-b", "--from", "feature-a"],
+        repo,
+        fake_home,
+        check=True,
+        capture_output=True,
+    )
+
+    # Run tree command
+    result = run_wt(["tree"], repo, fake_home, capture_output=True, text=True, check=True)
+
+    # Should show hierarchical structure
+    assert "main" in result.stdout
+    assert "feature-a" in result.stdout
+    assert "feature-b" in result.stdout
+
+    # feature-b should appear after feature-a (nested)
+    assert result.stdout.index("feature-a") < result.stdout.index("feature-b")
+
+
+def test_tree_rich_uses_box_drawing(git_repo):
+    """Tree command with --rich should use box-drawing characters."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create worktree
+    run_wt(["new", "feature-x"], repo, fake_home, check=True, capture_output=True)
+
+    # Get worktree path and add a commit so it shows in tree
+    list_result = run_wt(
+        ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
+    )
+    worktrees = json.loads(list_result.stdout)
+    for wt in worktrees:
+        if wt["branch"] and "feature-x" in wt["branch"]:
+            wt_path = Path(wt["path"])
+            (wt_path / "file.txt").write_text("test")
+            subprocess.run(["git", "add", "."], cwd=wt_path, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "commit", "-m", "Add file"], cwd=wt_path, check=True, capture_output=True
+            )
+            break
+
+    # Run tree command with --rich
+    result = run_wt(["tree", "--rich"], repo, fake_home, capture_output=True, text=True, check=True)
+
+    # Should show main and feature
+    assert "main" in result.stdout
+    assert "feature-x" in result.stdout
+    # Should use box-drawing characters
+    assert "└─" in result.stdout or "├─" in result.stdout
+
+
+def test_tree_highlights_current_worktree(git_repo):
+    """Tree command should highlight the current worktree."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create worktree
+    run_wt(["new", "current-branch"], repo, fake_home, check=True, capture_output=True)
+
+    # Get worktree path
+    list_result = run_wt(
+        ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
+    )
+    worktrees = json.loads(list_result.stdout)
+    wt_path = None
+    for wt in worktrees:
+        if wt["branch"] and "current-branch" in wt["branch"]:
+            wt_path = Path(wt["path"])
+            break
+
+    # Add a commit so the branch shows in tree
+    (wt_path / "file.txt").write_text("test")
+    subprocess.run(["git", "add", "."], cwd=wt_path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Add file"], cwd=wt_path, check=True, capture_output=True
+    )
+
+    # Run tree from within the worktree (simple mode)
+    result = run_wt(["tree"], wt_path, fake_home, capture_output=True, text=True, check=True)
+
+    # Should highlight current-branch with *
+    assert "current-branch *" in result.stdout or "current-branch*" in result.stdout
+
+    # Run tree with --rich from within the worktree
+    result_rich = run_wt(
+        ["tree", "--rich"], wt_path, fake_home, capture_output=True, text=True, check=True
+    )
+
+    # Should highlight current-branch with ●
+    assert "current-branch ●" in result_rich.stdout or "current-branch●" in result_rich.stdout
+
+
+def test_tree_handles_no_worktrees(git_repo):
+    """Tree command should handle case with only main branch."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Run tree with no additional worktrees
+    result = run_wt(["tree"], repo, fake_home, capture_output=True, text=True, check=True)
+
+    # Should just show main
+    assert "main" in result.stdout
+    # Should complete successfully
+    assert result.returncode == 0
