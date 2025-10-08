@@ -343,6 +343,157 @@ def cmd_open(args, cfg, repo_root):
     cmd_where(args, cfg, repo_root)
 
 
+def cmd_tree(args, cfg, repo_root):
+    """Show worktree relationships as a tree."""
+    # Get all worktrees
+    worktrees = gitutil.list_worktrees(repo_root)
+
+    # Get base branch for reference
+    base_branch = cfg["update"]["base"]
+    if base_branch == "origin/main":
+        base_branch = gitutil.get_default_branch(repo_root)
+
+    # Build a map of worktree branches and their likely parent
+    # Parent is the branch with the most recent common ancestor
+    wt_map = {}
+    base_name = base_branch.split("/")[-1] if "/" in base_branch else base_branch
+
+    for wt in worktrees:
+        if wt.is_bare or not wt.branch:
+            continue
+
+        # Find the most likely parent branch
+        parent = None
+        best_distance = float("inf")
+
+        # Check against base branch
+        try:
+            merge_base = gitutil.get_merge_base(wt.path, wt.branch, base_branch)
+            if merge_base:
+                # Count commits since merge base
+                distance_output = gitutil.git(
+                    "rev-list", "--count", f"{merge_base}..{wt.branch}", cwd=wt.path
+                )
+                distance = int(distance_output)
+
+                # If branch is just the base branch, use None as parent (it's the root)
+                if distance == 0:
+                    parent = None
+                else:
+                    parent = base_name
+                    best_distance = distance
+        except (gitutil.GitError, ValueError):
+            pass
+
+        # Check against other worktree branches to find closer parents
+        for other_wt in worktrees:
+            if other_wt.is_bare or not other_wt.branch or other_wt.branch == wt.branch:
+                continue
+
+            try:
+                merge_base = gitutil.get_merge_base(wt.path, wt.branch, other_wt.branch)
+                if merge_base:
+                    distance_output = gitutil.git(
+                        "rev-list", "--count", f"{merge_base}..{wt.branch}", cwd=wt.path
+                    )
+                    distance = int(distance_output)
+
+                    # If this is a closer parent, use it
+                    if distance > 0 and distance < best_distance:
+                        parent = other_wt.branch
+                        best_distance = distance
+            except (gitutil.GitError, ValueError):
+                continue
+
+        wt_map[wt.branch] = {
+            "parent": parent,
+            "path": wt.path,
+            "worktree": wt,
+        }
+
+    # Print tree
+    use_rich = args.rich if args.rich is not None else cfg["ui"]["rich"]
+
+    if use_rich:
+        _print_tree_rich(wt_map, base_name)
+    else:
+        _print_tree_simple(wt_map, base_name)
+
+
+def _print_tree_simple(wt_map, base_name):
+    """Print tree in simple ASCII format."""
+    # Get current working directory to highlight current worktree
+    current_path = Path.cwd()
+
+    # Helper to print a branch and its children recursively
+    def print_branch(branch, prefix="", is_last=True):
+        if branch not in wt_map:
+            # Print base branch (root)
+            marker = "└── " if is_last else "├── "
+            print(f"{prefix}{marker}{branch}")
+
+            # Find children
+            children = [b for b, info in wt_map.items() if info["parent"] == branch]
+            for i, child in enumerate(sorted(children)):
+                child_prefix = prefix + ("    " if is_last else "│   ")
+                print_branch(child, child_prefix, i == len(children) - 1)
+        else:
+            info = wt_map[branch]
+            marker = "└── " if is_last else "├── "
+
+            # Check if this is current worktree
+            is_current = current_path == info["path"]
+            branch_display = f"{branch} *" if is_current else branch
+
+            print(f"{prefix}{marker}{branch_display}")
+
+            # Find children
+            children = [b for b, info in wt_map.items() if info["parent"] == branch]
+            for i, child in enumerate(sorted(children)):
+                child_prefix = prefix + ("    " if is_last else "│   ")
+                print_branch(child, child_prefix, i == len(children) - 1)
+
+    # Print starting from base
+    print_branch(base_name, "", True)
+
+
+def _print_tree_rich(wt_map, base_name):
+    """Print tree with box-drawing characters."""
+    # Get current working directory to highlight current worktree
+    current_path = Path.cwd()
+
+    # Helper to print a branch and its children recursively
+    def print_branch(branch, prefix="", is_last=True):
+        if branch not in wt_map:
+            # Print base branch (root)
+            marker = "└─ " if is_last else "├─ "
+            print(f"{prefix}{marker}{branch}")
+
+            # Find children
+            children = [b for b, info in wt_map.items() if info["parent"] == branch]
+            for i, child in enumerate(sorted(children)):
+                child_prefix = prefix + ("   " if is_last else "│  ")
+                print_branch(child, child_prefix, i == len(children) - 1)
+        else:
+            info = wt_map[branch]
+            marker = "└─ " if is_last else "├─ "
+
+            # Check if this is current worktree
+            is_current = current_path == info["path"]
+            branch_display = f"{branch} ●" if is_current else branch
+
+            print(f"{prefix}{marker}{branch_display}")
+
+            # Find children
+            children = [b for b, info in wt_map.items() if info["parent"] == branch]
+            for i, child in enumerate(sorted(children)):
+                child_prefix = prefix + ("   " if is_last else "│  ")
+                print_branch(child, child_prefix, i == len(children) - 1)
+
+    # Print starting from base
+    print_branch(base_name, "", True)
+
+
 def cmd_gc(_args, cfg, repo_root):
     """Clean up stale worktrees."""
     print("Pruning stale worktree entries...", flush=True)
@@ -674,6 +825,12 @@ def main():  # noqa: PLR0915, PLR0912
     parser_open = subparsers.add_parser("open", help="Print worktree path (alias for where)")
     parser_open.add_argument("branch", help="Branch name")
 
+    # tree
+    parser_tree = subparsers.add_parser("tree", help="Show worktree relationships as tree")
+    parser_tree.add_argument(
+        "--rich", action="store_true", default=None, help="Use box-drawing characters"
+    )
+
     # gc
     subparsers.add_parser("gc", help="Clean up stale worktrees")
 
@@ -740,6 +897,8 @@ def main():  # noqa: PLR0915, PLR0912
             cmd_where(args, cfg, repo_root)
         elif args.command == "open":
             cmd_open(args, cfg, repo_root)
+        elif args.command == "tree":
+            cmd_tree(args, cfg, repo_root)
         elif args.command == "gc":
             cmd_gc(args, cfg, repo_root)
         elif args.command == "doctor":
