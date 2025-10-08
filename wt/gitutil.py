@@ -530,3 +530,33 @@ def stash_pop(path: Path) -> None:
 
     """
     git("stash", "pop", cwd=path)
+
+
+def move_worktree(repo_root: Path, old_path: Path, new_path: Path) -> None:
+    """Move a worktree to a new location.
+
+    Args:
+        repo_root: Repository root path
+        old_path: Current worktree path
+        new_path: New worktree path
+
+    Raises:
+        GitError: If worktree move fails
+
+    """
+    git("worktree", "move", str(old_path), str(new_path), cwd=repo_root)
+
+
+def rename_branch(repo_root: Path, old_name: str, new_name: str) -> None:
+    """Rename a branch.
+
+    Args:
+        repo_root: Repository root path
+        old_name: Current branch name
+        new_name: New branch name
+
+    Raises:
+        GitError: If branch rename fails
+
+    """
+    git("branch", "-m", old_name, new_name, cwd=repo_root)
