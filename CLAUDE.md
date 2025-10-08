@@ -115,12 +115,14 @@ Timeout enforcement via `timeout_seconds` config
 
 ### `wt new <branch>`
 1. Apply `auto_prefix` if configured
-2. Fetch origin, resolve source branch (default `origin/main`)
+2. Fetch origin, resolve source branch (default `origin/main` - **NOT current branch**)
 3. Render path template, create parent dirs
 4. Create branch (if needed) and worktree via `git worktree add`
 5. Create VS Code settings if `vscode.create_settings` is enabled
 6. Run post-create hooks in new worktree
 7. Print resulting path
+
+**Important:** Unlike `git checkout -b`, `wt new` branches from `origin/main` by default, not the current branch. Use `--from <branch>` to override or configure `[update] base` to change the default.
 
 ### `wt status`
 For each worktree:

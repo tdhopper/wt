@@ -623,7 +623,10 @@ def main():  # noqa: PLR0915, PLR0912
     parser_new = subparsers.add_parser("new", help="Create a new worktree")
     parser_new.add_argument("branch", help="Branch name")
     parser_new.add_argument(
-        "--from", dest="from_branch", default=None, help="Source branch (default: from config)"
+        "--from",
+        dest="from_branch",
+        default=None,
+        help="Source branch (default: origin/main or configured base)",
     )
     parser_new.add_argument("--track", action="store_true", help="Set upstream tracking")
     parser_new.add_argument("--force", action="store_true", help="Force creation, remove empty dir")

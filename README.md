@@ -103,6 +103,9 @@ This creates a new branch `login-redesign` from `origin/main` and checks it out 
 ~/repos/myproject-worktrees/login-redesign
 ```
 
+> [!IMPORTANT]
+> By default, `wt new` branches from `origin/main`, **not your current branch**. This is different from `git checkout -b`. To branch from a different base, use `wt new my-feature --from origin/develop` or configure a different default in `[update] base`.
+
 ### 2. Work in the worktree
 
 ```bash
