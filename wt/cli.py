@@ -177,6 +177,25 @@ def cmd_rm(args, cfg, repo_root):
         print(f"Error: No worktree found for branch '{branch_name}'", file=sys.stderr)
         sys.exit(1)
 
+    # Check for unpushed commits if deleting branch (do this before dry-run output)
+    unpushed_warning = None
+    if args.delete_branch and not args.force:
+        unpushed = gitutil.count_unpushed_commits(worktree_path, branch_name)
+        if unpushed > 0:
+            unpushed_warning = f"Branch '{branch_name}' has {unpushed} unpushed commits"
+
+    # Dry run mode
+    if args.dry_run:
+        print("Dry run - would perform the following operations:")
+        print(f"  Remove worktree at: {worktree_path}")
+        if args.delete_branch:
+            if unpushed_warning:
+                print(f"  Error: {unpushed_warning}")
+                print("  (Use --force to delete anyway)")
+            else:
+                print(f"  Delete branch: {branch_name}")
+        return
+
     # Confirm if not --yes
     if not args.yes:
         response = input(f"Remove worktree at {worktree_path}? [y/N] ")
@@ -191,15 +210,10 @@ def cmd_rm(args, cfg, repo_root):
     # Delete branch if requested
     if args.delete_branch:
         # Check for unpushed commits unless --force
-        if not args.force:
-            unpushed = gitutil.count_unpushed_commits(worktree_path, branch_name)
-            if unpushed > 0:
-                print(
-                    f"Error: Branch '{branch_name}' has {unpushed} unpushed commits",
-                    file=sys.stderr,
-                )
-                print("Use --force to delete anyway", file=sys.stderr)
-                sys.exit(1)
+        if unpushed_warning:
+            print(f"Error: {unpushed_warning}", file=sys.stderr)
+            print("Use --force to delete anyway", file=sys.stderr)
+            sys.exit(1)
 
         print(f"Deleting branch '{branch_name}'...", flush=True)
         gitutil.delete_branch(repo_root, branch_name, force=args.force)
@@ -236,6 +250,17 @@ def cmd_prune_merged(args, cfg, repo_root):
     print(f"Found {len(to_prune)} merged branches:")
     for branch in to_prune:
         print(f"  - {branch}")
+
+    # Dry run mode
+    if args.dry_run:
+        print("\nDry run - would perform the following operations:")
+        for branch in to_prune:
+            worktree_path = gitutil.worktree_path_for_branch(branch, repo_root)
+            if worktree_path:
+                print(f"  Remove worktree for '{branch}' at: {worktree_path}")
+            if args.delete_branch or cfg["prune"]["delete_branch_with_worktree"]:
+                print(f"  Delete branch: {branch}")
+        return
 
     # Confirm if not --yes
     if not args.yes:
@@ -648,6 +673,9 @@ def main():  # noqa: PLR0915, PLR0912
     parser_rm.add_argument("--yes", action="store_true", help="Skip confirmation")
     parser_rm.add_argument("--delete-branch", action="store_true", help="Also delete the branch")
     parser_rm.add_argument("--force", action="store_true", help="Force deletion")
+    parser_rm.add_argument(
+        "--dry-run", action="store_true", help="Show what would be done without executing"
+    )
 
     # prune-merged
     parser_prune = subparsers.add_parser("prune-merged", help="Prune merged branches")
@@ -657,6 +685,9 @@ def main():  # noqa: PLR0915, PLR0912
     )
     parser_prune.add_argument("--yes", action="store_true", help="Skip confirmation")
     parser_prune.add_argument("--delete-branch", action="store_true", help="Also delete branches")
+    parser_prune.add_argument(
+        "--dry-run", action="store_true", help="Show what would be done without executing"
+    )
 
     # pull-main
     parser_pull = subparsers.add_parser("pull-main", help="Update all worktrees from main")
