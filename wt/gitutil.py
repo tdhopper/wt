@@ -530,3 +530,21 @@ def stash_pop(path: Path) -> None:
 
     """
     git("stash", "pop", cwd=path)
+
+
+def get_merge_base(cwd: Path, commit1: str, commit2: str) -> str | None:
+    """Get the merge base between two commits.
+
+    Args:
+        cwd: Working directory
+        commit1: First commit/branch
+        commit2: Second commit/branch
+
+    Returns:
+        Merge base SHA, or None if no common ancestor
+
+    """
+    try:
+        return git("merge-base", commit1, commit2, cwd=cwd)
+    except GitError:
+        return None
