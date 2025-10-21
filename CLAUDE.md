@@ -37,6 +37,10 @@ wt rm feature-x --yes         # Remove worktree
 # Run tests (when implemented)
 pytest tests/
 pytest tests/test_config.py  # Single test file
+
+# Generate shell completions (requires shtab in dev dependencies)
+wt completion bash > ~/.bash_completion.d/wt  # For bash
+wt completion zsh > ~/.zsh/completions/_wt    # For zsh
 ```
 
 ## Architecture
@@ -181,3 +185,30 @@ For each worktree:
 1. Add to `build_template_context()` in `paths.py`
 2. Update SPEC.md template variables section
 3. Variables are auto-injected into hooks as `WT_<VARNAME>`
+
+## Shell Completions
+
+Shell completions are provided via the `wt completion` command using `shtab`:
+
+- **Dependency**: `shtab>=1.6.0` is a **dev-only dependency** (not runtime)
+- **No runtime overhead**: Completions are generated statically, not on every tab press
+- **Supported shells**: bash, zsh, tcsh
+
+### Installation
+```bash
+# Install dev dependencies (includes shtab)
+pip install -e .[dev]
+
+# Generate completion script for your shell
+wt completion bash > ~/.bash_completion.d/wt
+wt completion zsh > ~/.zsh/completions/_wt
+
+# Or source directly
+source <(wt completion bash)
+```
+
+### Design Notes
+- If `shtab` is not available, the `completion` command shows an installation message
+- The completion command is only added to the parser if `shtab` is importable
+- Parser structure is duplicated in `cmd_completion()` to ensure accurate completions
+- Maintains the "stdlib only runtime" principle by keeping shtab as dev-only dependency

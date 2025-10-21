@@ -8,6 +8,36 @@ import sys
 
 from . import config, gitutil, hooks, lock, paths, status, table
 
+try:
+    import shtab
+    SHTAB_AVAILABLE = True
+except ImportError:
+    SHTAB_AVAILABLE = False
+
+
+def _complete_worktree_names():
+    """Get worktree names for shell completion."""
+    try:
+        repo_root = paths.discover_repo_root()
+        worktrees = gitutil.list_worktrees(repo_root)
+        # Extract branch names from worktree info
+        branch_names = []
+        for wt_info in worktrees:
+            if wt_info.get("branch") and wt_info["branch"] != "(detached HEAD)":
+                # Remove origin/ prefix if present
+                branch = wt_info["branch"]
+                if branch.startswith("origin/"):
+                    branch = branch[7:]
+                branch_names.append(branch)
+        return branch_names
+    except Exception:
+        # If anything goes wrong, return empty list
+        return []
+
+
+# Custom completion pattern for shtab
+_WORKTREE_COMPLETION = {"bash": "_shtab_complete_worktrees", "zsh": "_shtab_complete_worktrees", "tcsh": "C"}
+
 
 def cmd_new(args, cfg, repo_root):  # noqa: PLR0912, PLR0915
     """Create a new worktree."""
@@ -579,6 +609,146 @@ def cmd_hooks_list(_args, cfg, repo_root):
             print(f"  chmod +x {hook}")
 
 
+def cmd_completion(args, _cfg, _repo_root):
+    """Generate shell completion scripts."""
+    if not SHTAB_AVAILABLE:
+        print("Error: shtab is required to generate completions", file=sys.stderr)
+        print("Install with: pip install shtab", file=sys.stderr)
+        sys.exit(1)
+
+    # Create a parser with the same structure as main()
+    parser = argparse.ArgumentParser(
+        description="wt - Zero-friction git worktree manager",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    parser.add_argument("--repo", type=Path, help="Repository path (default: auto-discover)")
+    parser.add_argument("--config", type=Path, help="Config file override")
+
+    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+
+    # new
+    parser_new = subparsers.add_parser("new", help="Create a new worktree")
+    parser_new.add_argument("branch", help="Branch name")
+    parser_new.add_argument(
+        "--from", dest="from_branch", default=None, help="Source branch (default: from config)"
+    )
+    parser_new.add_argument("--track", action="store_true", help="Set upstream tracking")
+    parser_new.add_argument("--force", action="store_true", help="Force creation, remove empty dir")
+
+    # list
+    parser_list = subparsers.add_parser("list", help="List all worktrees")
+    parser_list.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # status
+    parser_status = subparsers.add_parser("status", help="Show worktree status")
+    parser_status.add_argument("--json", action="store_true", help="Output as JSON")
+    parser_status.add_argument("--rich", action="store_true", default=None, help="Use rich formatting")
+
+    # rm
+    parser_rm = subparsers.add_parser("rm", help="Remove a worktree")
+    rm_branch_arg = parser_rm.add_argument("branch", help="Branch name")
+    rm_branch_arg.complete = _WORKTREE_COMPLETION
+    parser_rm.add_argument("--yes", action="store_true", help="Skip confirmation")
+    parser_rm.add_argument("--delete-branch", action="store_true", help="Also delete the branch")
+    parser_rm.add_argument("--force", action="store_true", help="Force deletion")
+
+    # prune-merged
+    parser_prune = subparsers.add_parser("prune-merged", help="Prune merged branches")
+    parser_prune.add_argument("--base", help="Base branch (default: from config)")
+    parser_prune.add_argument("--protected", nargs="*", help="Protected branches (default: from config)")
+    parser_prune.add_argument("--yes", action="store_true", help="Skip confirmation")
+    parser_prune.add_argument("--delete-branch", action="store_true", help="Also delete branches")
+
+    # pull-main
+    parser_pull = subparsers.add_parser("pull-main", help="Update all worktrees from main")
+    parser_pull.add_argument("--base", help="Base branch (default: from config)")
+    parser_pull.add_argument("--strategy", choices=["rebase", "merge", "ff-only"], help="Update strategy")
+    parser_pull.add_argument("--stash", action="store_true", help="Auto-stash dirty trees")
+
+    # where
+    parser_where = subparsers.add_parser("where", help="Print worktree path")
+    where_branch_arg = parser_where.add_argument("branch", help="Branch name")
+    where_branch_arg.complete = _WORKTREE_COMPLETION
+
+    # open
+    parser_open = subparsers.add_parser("open", help="Print worktree path (alias for where)")
+    open_branch_arg = parser_open.add_argument("branch", help="Branch name")
+    open_branch_arg.complete = _WORKTREE_COMPLETION
+
+    # gc
+    subparsers.add_parser("gc", help="Clean up stale worktrees")
+
+    # doctor
+    subparsers.add_parser("doctor", help="Check configuration")
+
+    # completion
+    parser_completion = subparsers.add_parser("completion", help="Generate shell completions")
+    parser_completion.add_argument("shell", choices=["bash", "zsh", "tcsh"], help="Shell type")
+
+    # hooks
+    parser_hooks = subparsers.add_parser("hooks", help="Manage hooks")
+    hooks_subparsers = parser_hooks.add_subparsers(dest="hooks_command", help="Hooks command")
+
+    # hooks init
+    parser_hooks_init = hooks_subparsers.add_parser("init", help="Initialize hooks directory")
+    parser_hooks_init.add_argument("--local", action="store_true", help="Create local hooks directory")
+    parser_hooks_init.add_argument("--template", action="store_true", help="Create example template hook")
+    parser_hooks_init.add_argument("--force", action="store_true", help="Overwrite existing template")
+
+    # hooks list
+    hooks_subparsers.add_parser("list", help="List all hooks and their status")
+
+    # Generate and print completion script
+    # Define custom choice functions for shtab
+    choice_functions = {
+        "_shtab_complete_worktrees": _complete_worktree_names,
+    }
+    
+    completion_script = shtab.complete(parser, shell=args.shell, choice_functions=choice_functions)
+    
+    # Add custom completion functions for different shells
+    if args.shell == "bash":
+        custom_function = """
+_shtab_complete_worktrees() {
+    local python_script="
+import sys; sys.path.insert(0, '.')
+try:
+    from wt.cli import _complete_worktree_names
+    branches = _complete_worktree_names()
+    print(' '.join(branches))
+except:
+    pass
+"
+    local branches=$(python3 -c "$python_script" 2>/dev/null)
+    COMPREPLY=($(compgen -W "$branches" -- "$2"))
+}
+
+"""
+        completion_script = custom_function + completion_script
+    elif args.shell == "zsh":
+        custom_function = """
+_shtab_complete_worktrees() {
+    local python_script="
+import sys; sys.path.insert(0, '.')
+try:
+    from wt.cli import _complete_worktree_names
+    branches = _complete_worktree_names()
+    for branch in branches:
+        print(branch)
+except:
+    pass
+"
+    local branches=($(python3 -c "$python_script" 2>/dev/null))
+    _describe 'worktree branches' branches
+}
+
+"""
+        completion_script = custom_function + completion_script
+    
+    print(completion_script)
+
+
 def cmd_doctor(_args, cfg, repo_root):  # noqa: PLR0912
     """Check configuration and environment."""
     print("Checking wt configuration and environment...\n")
@@ -752,6 +922,11 @@ def main():  # noqa: PLR0915, PLR0912
     # doctor
     subparsers.add_parser("doctor", help="Check configuration")
 
+    # completion
+    if SHTAB_AVAILABLE:
+        parser_completion = subparsers.add_parser("completion", help="Generate shell completions")
+        parser_completion.add_argument("shell", choices=["bash", "zsh", "tcsh"], help="Shell type")
+
     # hooks
     parser_hooks = subparsers.add_parser("hooks", help="Manage hooks")
     hooks_subparsers = parser_hooks.add_subparsers(dest="hooks_command", help="Hooks command")
@@ -816,6 +991,8 @@ def main():  # noqa: PLR0915, PLR0912
             cmd_gc(args, cfg, repo_root)
         elif args.command == "doctor":
             cmd_doctor(args, cfg, repo_root)
+        elif args.command == "completion":
+            cmd_completion(args, cfg, repo_root)
         elif args.command == "hooks":
             if args.hooks_command == "init":
                 cmd_hooks_init(args, cfg, repo_root)

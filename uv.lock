@@ -189,6 +189,15 @@ wheels = [
 ]
 
 [[package]]
+name = "shtab"
+version = "1.7.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/3e/837067b970c1d2ffa936c72f384a63fdec4e186b74da781e921354a94024/shtab-1.7.2.tar.gz", hash = "sha256:8c16673ade76a2d42417f03e57acf239bfb5968e842204c17990cae357d07d6f", size = 45751, upload-time = "2025-04-12T20:28:03.271Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/74/03/3271b7bb470fbab4adf5bd30b0d32143909d96f3608d815b447357f47f2b/shtab-1.7.2-py3-none-any.whl", hash = "sha256:858a5805f6c137bb0cda4f282d27d08fd44ca487ab4a6a36d2a400263cd0b5c1", size = 14214, upload-time = "2025-04-12T20:28:01.82Z" },
+]
+
+[[package]]
 name = "virtualenv"
 version = "20.34.0"
 source = { registry = "https://pypi.org/simple" }
@@ -211,6 +220,7 @@ source = { editable = "." }
 dev = [
     { name = "pre-commit" },
     { name = "pytest" },
+    { name = "shtab" },
 ]
 
 [package.metadata]
@@ -219,4 +229,5 @@ dev = [
 dev = [
     { name = "pre-commit", specifier = ">=3.0.0" },
     { name = "pytest", specifier = ">=7.0.0" },
+    { name = "shtab", specifier = ">=1.6.0" },
 ]
