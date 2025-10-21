@@ -213,7 +213,6 @@ wheels = [
 
 [[package]]
 name = "wt-cli"
-version = "0.2.0"
 source = { editable = "." }
 
 [package.dev-dependencies]

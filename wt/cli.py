@@ -18,14 +18,17 @@ except ImportError:
 def _complete_worktree_names():
     """Get worktree names for shell completion."""
     try:
-        repo_root = paths.discover_repo_root()
+        # Try to discover repo, with fallback to default_repo if configured
+        minimal_cfg = config.load_config(repo_root=None)
+        default_repo = minimal_cfg["paths"]["default_repo"] or None
+        repo_root = paths.discover_repo_root(default_repo=default_repo)
         worktrees = gitutil.list_worktrees(repo_root)
         # Extract branch names from worktree info
         branch_names = []
         for wt_info in worktrees:
-            if wt_info.get("branch") and wt_info["branch"] != "(detached HEAD)":
+            if wt_info.branch and wt_info.branch != "(detached HEAD)":
                 # Remove origin/ prefix if present
-                branch = wt_info["branch"]
+                branch = wt_info.branch
                 if branch.startswith("origin/"):
                     branch = branch[7:]
                 branch_names.append(branch)
@@ -956,16 +959,24 @@ def main():  # noqa: PLR0915, PLR0912
     if args.verbose:
         gitutil.set_verbose(True)
 
+    # Load minimal config to get default_repo setting for discovery
+    # (we load full config again after repo discovery)
+    minimal_cfg = config.load_config(repo_root=None)
+    default_repo = minimal_cfg["paths"]["default_repo"] or None
+
     # Discover repo root (except for doctor which handles errors)
     try:
-        repo_root = paths.discover_repo_root(args.repo) if args.repo else paths.discover_repo_root()
+        if args.repo:
+            repo_root = paths.discover_repo_root(args.repo)
+        else:
+            repo_root = paths.discover_repo_root(default_repo=default_repo)
     except paths.RepoDiscoveryError as e:
         if args.command != "doctor":
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
         repo_root = Path.cwd()  # For doctor, use cwd
 
-    # Load config
+    # Load full config with discovered repo_root
     cfg = config.load_config(repo_root)
 
     # Acquire lock
