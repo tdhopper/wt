@@ -350,7 +350,7 @@ def test_cli_uses_default_repo_from_non_git_directory(git_repo):
     config_dir.mkdir(parents=True)
     (config_dir / "config.toml").write_text(f"""
 [paths]
-default_repo = "{repo}"
+default_repo = "{repo.as_posix()}"
 """)
 
     # Create non-git directory to run from
@@ -399,7 +399,7 @@ def test_cli_prefers_current_repo_over_default_repo(git_repo):
     config_dir.mkdir(parents=True)
     (config_dir / "config.toml").write_text(f"""
 [paths]
-default_repo = "{other_repo}"
+default_repo = "{other_repo.as_posix()}"
 """)
 
     # Run from the original repo - should use current repo, not default
@@ -466,7 +466,7 @@ def test_cli_fails_gracefully_with_non_git_default_repo():
         config_dir.mkdir(parents=True)
         (config_dir / "config.toml").write_text(f"""
 [paths]
-default_repo = "{not_git}"
+default_repo = "{not_git.as_posix()}"
 """)
 
         # Run from non-git directory - should fail with clear message
@@ -512,7 +512,7 @@ def test_new_worktree_uses_default_repo(git_repo):
     config_dir.mkdir(parents=True)
     (config_dir / "config.toml").write_text(f"""
 [paths]
-default_repo = "{repo}"
+default_repo = "{repo.as_posix()}"
 """)
 
     # Create non-git directory to run from
@@ -584,7 +584,7 @@ def test_completion_works_with_default_repo(git_repo):
     config_dir.mkdir(parents=True)
     (config_dir / "config.toml").write_text(f"""
 [paths]
-default_repo = "{repo}"
+default_repo = "{repo.as_posix()}"
 """)
 
     # Create non-git directory to run from
@@ -610,7 +610,7 @@ def test_doctor_shows_default_repo_setting(git_repo):
     config_dir.mkdir(parents=True)
     (config_dir / "config.toml").write_text(f"""
 [paths]
-default_repo = "{repo}"
+default_repo = "{repo.as_posix()}"
 """)
 
     # Run doctor from git repo
@@ -676,7 +676,7 @@ def test_completion_function_uses_default_repo_from_non_git_directory(git_repo):
     config_dir.mkdir(parents=True)
     (config_dir / "config.toml").write_text(f"""
 [paths]
-default_repo = "{repo}"
+default_repo = "{repo.as_posix()}"
 """)
 
     # Create non-git directory
@@ -852,7 +852,7 @@ def test_completion_function_filters_origin_prefix():
         config_dir.mkdir(parents=True)
         (config_dir / "config.toml").write_text(f"""
 [paths]
-default_repo = "{repo}"
+default_repo = "{repo.as_posix()}"
 """)
 
         sys.path.insert(
