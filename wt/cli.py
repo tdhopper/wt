@@ -8,8 +8,10 @@ import sys
 
 from . import config, gitutil, hooks, lock, paths, status, table
 
+
 try:
     import shtab
+
     SHTAB_AVAILABLE = True
 except ImportError:
     SHTAB_AVAILABLE = False
@@ -32,14 +34,19 @@ def _complete_worktree_names():
                 if branch.startswith("origin/"):
                     branch = branch[7:]
                 branch_names.append(branch)
-        return branch_names
     except Exception:
         # If anything goes wrong, return empty list
         return []
+    else:
+        return branch_names
 
 
 # Custom completion pattern for shtab
-_WORKTREE_COMPLETION = {"bash": "_shtab_complete_worktrees", "zsh": "_shtab_complete_worktrees", "tcsh": "C"}
+_WORKTREE_COMPLETION = {
+    "bash": "_shtab_complete_worktrees",
+    "zsh": "_shtab_complete_worktrees",
+    "tcsh": "C",
+}
 
 
 def cmd_new(args, cfg, repo_root):  # noqa: PLR0912, PLR0915
@@ -646,7 +653,9 @@ def cmd_completion(args, _cfg, _repo_root):
     # status
     parser_status = subparsers.add_parser("status", help="Show worktree status")
     parser_status.add_argument("--json", action="store_true", help="Output as JSON")
-    parser_status.add_argument("--rich", action="store_true", default=None, help="Use rich formatting")
+    parser_status.add_argument(
+        "--rich", action="store_true", default=None, help="Use rich formatting"
+    )
 
     # rm
     parser_rm = subparsers.add_parser("rm", help="Remove a worktree")
@@ -659,14 +668,18 @@ def cmd_completion(args, _cfg, _repo_root):
     # prune-merged
     parser_prune = subparsers.add_parser("prune-merged", help="Prune merged branches")
     parser_prune.add_argument("--base", help="Base branch (default: from config)")
-    parser_prune.add_argument("--protected", nargs="*", help="Protected branches (default: from config)")
+    parser_prune.add_argument(
+        "--protected", nargs="*", help="Protected branches (default: from config)"
+    )
     parser_prune.add_argument("--yes", action="store_true", help="Skip confirmation")
     parser_prune.add_argument("--delete-branch", action="store_true", help="Also delete branches")
 
     # pull-main
     parser_pull = subparsers.add_parser("pull-main", help="Update all worktrees from main")
     parser_pull.add_argument("--base", help="Base branch (default: from config)")
-    parser_pull.add_argument("--strategy", choices=["rebase", "merge", "ff-only"], help="Update strategy")
+    parser_pull.add_argument(
+        "--strategy", choices=["rebase", "merge", "ff-only"], help="Update strategy"
+    )
     parser_pull.add_argument("--stash", action="store_true", help="Auto-stash dirty trees")
 
     # where
@@ -695,9 +708,15 @@ def cmd_completion(args, _cfg, _repo_root):
 
     # hooks init
     parser_hooks_init = hooks_subparsers.add_parser("init", help="Initialize hooks directory")
-    parser_hooks_init.add_argument("--local", action="store_true", help="Create local hooks directory")
-    parser_hooks_init.add_argument("--template", action="store_true", help="Create example template hook")
-    parser_hooks_init.add_argument("--force", action="store_true", help="Overwrite existing template")
+    parser_hooks_init.add_argument(
+        "--local", action="store_true", help="Create local hooks directory"
+    )
+    parser_hooks_init.add_argument(
+        "--template", action="store_true", help="Create example template hook"
+    )
+    parser_hooks_init.add_argument(
+        "--force", action="store_true", help="Overwrite existing template"
+    )
 
     # hooks list
     hooks_subparsers.add_parser("list", help="List all hooks and their status")
@@ -707,9 +726,9 @@ def cmd_completion(args, _cfg, _repo_root):
     choice_functions = {
         "_shtab_complete_worktrees": _complete_worktree_names,
     }
-    
+
     completion_script = shtab.complete(parser, shell=args.shell, choice_functions=choice_functions)
-    
+
     # Add custom completion functions for different shells
     if args.shell == "bash":
         custom_function = """
@@ -748,7 +767,7 @@ except:
 
 """
         completion_script = custom_function + completion_script
-    
+
     print(completion_script)
 
 

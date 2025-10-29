@@ -1,5 +1,6 @@
 """Simple table formatting using stdlib only."""
 
+import re
 import sys
 from typing import Any
 
@@ -76,8 +77,6 @@ def format_table(headers: list[str], rows: list[list[Any]], _rich: bool = False)
 
 def _visible_len(text: str) -> int:
     """Calculate visible length of text, excluding ANSI codes."""
-    import re
-
     # Remove ANSI escape sequences
     ansi_escape = re.compile(r"\033\[[0-9;]*m")
     return len(ansi_escape.sub("", text))
