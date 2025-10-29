@@ -18,6 +18,7 @@ def run_wt(args: list[str], cwd: Path, fake_home: Path, check=False, **kwargs):
     env = os.environ.copy()
     env["HOME"] = str(fake_home)
     env["USERPROFILE"] = str(fake_home)  # For Windows compatibility with Path.home()
+    env["PYTHONIOENCODING"] = "utf-8"  # For Windows Unicode support (checkmarks, etc.)
     return subprocess.run(
         [sys.executable, "-m", "wt.cli", *args], cwd=cwd, env=env, check=check, **kwargs
     )
