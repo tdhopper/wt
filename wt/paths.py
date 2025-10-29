@@ -56,9 +56,24 @@ def discover_repo_root(start: Path | None = None, default_repo: str | None = Non
         # In a worktree: /path/to/main/repo/.git -> main repo_root
     except subprocess.CalledProcessError as e:
         # Not in a git repository - try default_repo fallback
-        if not default_repo:
+        if not default_repo or not default_repo.strip():
             raise RepoDiscoveryError(f"Not in a git repository: {e.stderr.strip()}") from e
-        default_path = Path(default_repo).expanduser().resolve()
+
+        # Expand and resolve the default_repo path
+        default_path = Path(default_repo.strip()).expanduser()
+
+        # Check if the path exists before trying to use it as cwd (Windows compatibility)
+        if not default_path.exists():
+            raise RepoDiscoveryError(
+                f"Default repository '{default_repo}' is not a valid git repository"
+            ) from e
+
+        if not default_path.is_dir():
+            raise RepoDiscoveryError(
+                f"Default repository '{default_repo}' is not a valid git repository"
+            ) from e
+
+        default_path = default_path.resolve()
 
         # Validate that default_repo is actually a git repository
         try:
@@ -72,7 +87,7 @@ def discover_repo_root(start: Path | None = None, default_repo: str | None = Non
             git_common_dir = Path(result.stdout.strip())
             if not git_common_dir.is_absolute():
                 git_common_dir = (default_path / git_common_dir).resolve()
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        except (subprocess.CalledProcessError, FileNotFoundError, OSError):
             raise RepoDiscoveryError(
                 f"Default repository '{default_repo}' is not a valid git repository"
             ) from e

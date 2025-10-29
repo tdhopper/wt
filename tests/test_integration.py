@@ -39,7 +39,10 @@ def git_repo():
         repo.mkdir()
         subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
         subprocess.run(
-            ["git", "config", "user.name", "Test"], cwd=repo, check=True, capture_output=True
+            ["git", "config", "user.name", "Test"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "config", "user.email", "test@test.com"],
@@ -58,11 +61,17 @@ def git_repo():
         (repo / "README.md").write_text("# Test")
         subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
         subprocess.run(
-            ["git", "commit", "-m", "Initial commit"], cwd=repo, check=True, capture_output=True
+            ["git", "commit", "-m", "Initial commit"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(["git", "branch", "-M", "main"], cwd=repo, check=True, capture_output=True)
         subprocess.run(
-            ["git", "push", "-u", "origin", "main"], cwd=repo, check=True, capture_output=True
+            ["git", "push", "-u", "origin", "main"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
         )
 
         yield {"repo": repo, "remote": remote, "fake_home": fake_home}
@@ -79,7 +88,11 @@ def test_new_worktree_creates_and_tracks(git_repo):
 
     # Verify worktree exists
     wt_list = subprocess.run(
-        ["git", "worktree", "list"], cwd=repo, capture_output=True, text=True, check=True
+        ["git", "worktree", "list"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     assert "feature-test" in wt_list.stdout
 
@@ -175,7 +188,14 @@ worktree_path_template = "$WT_ROOT/branches/$BRANCH_NAME"
 """)
 
     # Create worktree with slash in name
-    run_wt(["new", "feat/nested"], repo, fake_home, capture_output=True, text=True, check=True)
+    run_wt(
+        ["new", "feat/nested"],
+        repo,
+        fake_home,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
 
     # Verify nested path exists
     list_result = run_wt(["list"], repo, fake_home, capture_output=True, text=True, check=True)
@@ -237,6 +257,7 @@ def test_new_worktree_with_existing_branch_not_detached(git_repo):
         ["git", "status"], cwd=wt_path, capture_output=True, text=True, check=True
     )
 
+    # fmt: off
     # Should NOT say "Not currently on any branch" (detached)
     assert (
         "Not currently on any branch" not in status_result.stdout
@@ -245,6 +266,7 @@ def test_new_worktree_with_existing_branch_not_detached(git_repo):
     assert (
         "existing-branch" in status_result.stdout
     ), f"Worktree should be on existing-branch, got: {status_result.stdout}"
+    # fmt: on
 
 
 def test_new_from_current_moves_branch_to_worktree(git_repo):
@@ -257,7 +279,10 @@ def test_new_from_current_moves_branch_to_worktree(git_repo):
     (repo / "accident.txt").write_text("oops")
     subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
     subprocess.run(
-        ["git", "commit", "-m", "Accidental work"], cwd=repo, check=True, capture_output=True
+        ["git", "commit", "-m", "Accidental work"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
     )
 
     # Use --from-current to move this branch to a worktree
@@ -304,7 +329,11 @@ def test_new_from_current_errors_with_branch_arg(git_repo):
     fake_home = git_repo["fake_home"]
 
     result = run_wt(
-        ["new", "some-branch", "--from-current"], repo, fake_home, capture_output=True, text=True
+        ["new", "some-branch", "--from-current"],
+        repo,
+        fake_home,
+        capture_output=True,
+        text=True,
     )
 
     assert result.returncode != 0, "Should fail when both branch and --from-current provided"
@@ -345,7 +374,10 @@ def test_cli_prefers_current_repo_over_default_repo(git_repo):
     other_repo.mkdir()
     subprocess.run(["git", "init"], cwd=other_repo, check=True, capture_output=True)
     subprocess.run(
-        ["git", "config", "user.name", "Test"], cwd=other_repo, check=True, capture_output=True
+        ["git", "config", "user.name", "Test"],
+        cwd=other_repo,
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
@@ -356,7 +388,10 @@ def test_cli_prefers_current_repo_over_default_repo(git_repo):
     (other_repo / "other.txt").write_text("other repo")
     subprocess.run(["git", "add", "."], cwd=other_repo, check=True, capture_output=True)
     subprocess.run(
-        ["git", "commit", "-m", "other commit"], cwd=other_repo, check=True, capture_output=True
+        ["git", "commit", "-m", "other commit"],
+        cwd=other_repo,
+        check=True,
+        capture_output=True,
     )
 
     # Set default_repo to other_repo
@@ -373,8 +408,13 @@ default_repo = "{other_repo}"
     worktrees = json.loads(result.stdout)
     # Should show original repo path, not other_repo
     main_wt = next(wt for wt in worktrees if "main" in wt.get("branch", ""))
-    assert str(repo) in main_wt["path"]
-    assert str(other_repo) not in main_wt["path"]
+    # Use Path.resolve() for comparison to handle Windows short path names (RUNNER~1 vs runneradmin)
+    main_wt_path = Path(main_wt["path"]).resolve()
+    repo_resolved = repo.resolve()
+    other_repo_resolved = other_repo.resolve()
+    assert repo_resolved == main_wt_path or str(repo_resolved) in str(main_wt_path)
+    assert other_repo_resolved != main_wt_path
+    assert str(other_repo_resolved) not in str(main_wt_path)
 
 
 def test_cli_fails_gracefully_with_invalid_default_repo():
@@ -395,7 +435,12 @@ default_repo = "/does/not/exist"
 
         # Run from non-git directory - should fail with clear message
         result = run_wt(
-            ["status"], non_git_dir, fake_home, capture_output=True, text=True, check=False
+            ["status"],
+            non_git_dir,
+            fake_home,
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
         assert result.returncode != 0
@@ -426,7 +471,12 @@ default_repo = "{not_git}"
 
         # Run from non-git directory - should fail with clear message
         result = run_wt(
-            ["status"], non_git_dir, fake_home, capture_output=True, text=True, check=False
+            ["status"],
+            non_git_dir,
+            fake_home,
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
         assert result.returncode != 0
@@ -471,14 +521,22 @@ default_repo = "{repo}"
 
     # Create new worktree from non-git directory - should use default_repo
     result = run_wt(
-        ["new", "feature-from-default"], non_git_dir, fake_home, capture_output=True, text=True
+        ["new", "feature-from-default"],
+        non_git_dir,
+        fake_home,
+        capture_output=True,
+        text=True,
     )
 
     assert result.returncode == 0, f"Failed: {result.stderr}"
 
     # Verify worktree was created in default repo
     wt_list = subprocess.run(
-        ["git", "worktree", "list"], cwd=repo, capture_output=True, text=True, check=True
+        ["git", "worktree", "list"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     assert "feature-from-default" in wt_list.stdout
 
@@ -760,7 +818,10 @@ def test_completion_function_filters_origin_prefix():
         # Set up a git repo with origin/ prefixed branches
         subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
         subprocess.run(
-            ["git", "config", "user.name", "Test"], cwd=repo, check=True, capture_output=True
+            ["git", "config", "user.name", "Test"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "config", "user.email", "test@test.com"],
@@ -771,7 +832,10 @@ def test_completion_function_filters_origin_prefix():
         (repo / "README.md").write_text("test")
         subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
         subprocess.run(
-            ["git", "commit", "-m", "initial"], cwd=repo, check=True, capture_output=True
+            ["git", "commit", "-m", "initial"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(["git", "branch", "-M", "main"], cwd=repo, check=True, capture_output=True)
 
