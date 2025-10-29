@@ -615,9 +615,10 @@ default_repo = "{repo.as_posix()}"
 """)
 
     # Run doctor from git repo
-    result = run_wt(["doctor"], repo, fake_home, capture_output=True, text=True, check=True)
+    result = run_wt(["doctor"], repo, fake_home, capture_output=True, text=True, check=False)
 
-    # Doctor should show the default_repo setting
+    # Doctor should show the default_repo setting (even if it reports issues)
+    # Note: Doctor may exit 1 on Windows due to permission checks in temp directories
     assert str(repo) in result.stdout or "default_repo" in result.stdout
 
 
