@@ -3,11 +3,14 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
 
 import pytest
+
+from wt.cli import _complete_worktree_names
 
 
 def run_wt(args: list[str], cwd: Path, fake_home: Path, check=False, **kwargs):
@@ -99,8 +102,6 @@ def test_status_shows_dirty_worktrees(git_repo):
     list_result = run_wt(
         ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
     )
-
-    import json
 
     worktrees = json.loads(list_result.stdout)
     wt_path = None
@@ -221,8 +222,6 @@ def test_new_worktree_with_existing_branch_not_detached(git_repo):
         ["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True
     )
 
-    import json
-
     worktrees = json.loads(list_result.stdout)
     wt_path = None
     for wt in worktrees:
@@ -239,13 +238,13 @@ def test_new_worktree_with_existing_branch_not_detached(git_repo):
     )
 
     # Should NOT say "Not currently on any branch" (detached)
-    assert (
-        "Not currently on any branch" not in status_result.stdout
-    ), "Worktree is detached HEAD, should be on existing-branch"
+    assert "Not currently on any branch" not in status_result.stdout, (
+        "Worktree is detached HEAD, should be on existing-branch"
+    )
     # The branch name might have a prefix from config, so just check it contains "existing-branch"
-    assert (
-        "existing-branch" in status_result.stdout
-    ), f"Worktree should be on existing-branch, got: {status_result.stdout}"
+    assert "existing-branch" in status_result.stdout, (
+        f"Worktree should be on existing-branch, got: {status_result.stdout}"
+    )
 
 
 def test_new_from_current_moves_branch_to_worktree(git_repo):
@@ -316,7 +315,7 @@ def test_cli_uses_default_repo_from_non_git_directory(git_repo):
     """CLI should use default_repo when invoked from non-git directory."""
     repo = git_repo["repo"]
     fake_home = git_repo["fake_home"]
-    
+
     # Create global config with default_repo
     config_dir = fake_home / ".config" / "wt"
     config_dir.mkdir(parents=True)
@@ -324,14 +323,14 @@ def test_cli_uses_default_repo_from_non_git_directory(git_repo):
 [paths]
 default_repo = "{repo}"
 """)
-    
+
     # Create non-git directory to run from
     non_git_dir = fake_home / "not_a_repo"
     non_git_dir.mkdir()
-    
+
     # Run status from non-git directory - should use default_repo
     result = run_wt(["status"], non_git_dir, fake_home, capture_output=True, text=True, check=True)
-    
+
     # Should succeed and show the default repo's status
     assert "main" in result.stdout  # Should show main branch from default repo
 
@@ -340,17 +339,26 @@ def test_cli_prefers_current_repo_over_default_repo(git_repo):
     """When in git repo, CLI should ignore default_repo setting."""
     repo = git_repo["repo"]
     fake_home = git_repo["fake_home"]
-    
+
     # Create another git repo to use as default
     other_repo = fake_home / "other_repo"
     other_repo.mkdir()
     subprocess.run(["git", "init"], cwd=other_repo, check=True, capture_output=True)
-    subprocess.run(["git", "config", "user.name", "Test"], cwd=other_repo, check=True, capture_output=True)
-    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=other_repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], cwd=other_repo, check=True, capture_output=True
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"],
+        cwd=other_repo,
+        check=True,
+        capture_output=True,
+    )
     (other_repo / "other.txt").write_text("other repo")
     subprocess.run(["git", "add", "."], cwd=other_repo, check=True, capture_output=True)
-    subprocess.run(["git", "commit", "-m", "other commit"], cwd=other_repo, check=True, capture_output=True)
-    
+    subprocess.run(
+        ["git", "commit", "-m", "other commit"], cwd=other_repo, check=True, capture_output=True
+    )
+
     # Set default_repo to other_repo
     config_dir = fake_home / ".config" / "wt"
     config_dir.mkdir(parents=True)
@@ -358,10 +366,10 @@ def test_cli_prefers_current_repo_over_default_repo(git_repo):
 [paths]
 default_repo = "{other_repo}"
 """)
-    
+
     # Run from the original repo - should use current repo, not default
     result = run_wt(["list", "--json"], repo, fake_home, capture_output=True, text=True, check=True)
-    
+
     worktrees = json.loads(result.stdout)
     # Should show original repo path, not other_repo
     main_wt = next(wt for wt in worktrees if "main" in wt.get("branch", ""))
@@ -376,7 +384,7 @@ def test_cli_fails_gracefully_with_invalid_default_repo():
         fake_home.mkdir()
         non_git_dir = fake_home / "not_a_repo"
         non_git_dir.mkdir()
-        
+
         # Set default_repo to non-existent directory
         config_dir = fake_home / ".config" / "wt"
         config_dir.mkdir(parents=True)
@@ -384,12 +392,16 @@ def test_cli_fails_gracefully_with_invalid_default_repo():
 [paths]
 default_repo = "/does/not/exist"
 """)
-        
+
         # Run from non-git directory - should fail with clear message
-        result = run_wt(["status"], non_git_dir, fake_home, capture_output=True, text=True, check=False)
-        
+        result = run_wt(
+            ["status"], non_git_dir, fake_home, capture_output=True, text=True, check=False
+        )
+
         assert result.returncode != 0
-        assert "Default repository" in result.stderr or "not a valid git repository" in result.stderr
+        assert (
+            "Default repository" in result.stderr or "not a valid git repository" in result.stderr
+        )
 
 
 def test_cli_fails_gracefully_with_non_git_default_repo():
@@ -399,11 +411,11 @@ def test_cli_fails_gracefully_with_non_git_default_repo():
         fake_home.mkdir()
         non_git_dir = fake_home / "not_a_repo"
         non_git_dir.mkdir()
-        
+
         # Create a directory that's not a git repo
         not_git = fake_home / "not_git_repo"
         not_git.mkdir()
-        
+
         # Set default_repo to non-git directory
         config_dir = fake_home / ".config" / "wt"
         config_dir.mkdir(parents=True)
@@ -411,19 +423,22 @@ def test_cli_fails_gracefully_with_non_git_default_repo():
 [paths]
 default_repo = "{not_git}"
 """)
-        
+
         # Run from non-git directory - should fail with clear message
-        result = run_wt(["status"], non_git_dir, fake_home, capture_output=True, text=True, check=False)
-        
+        result = run_wt(
+            ["status"], non_git_dir, fake_home, capture_output=True, text=True, check=False
+        )
+
         assert result.returncode != 0
-        assert "Default repository" in result.stderr and "not a valid git repository" in result.stderr
+        assert "Default repository" in result.stderr
+        assert "not a valid git repository" in result.stderr
 
 
 def test_cli_works_without_default_repo_from_git_directory(git_repo):
     """CLI should work normally when no default_repo is set but we're in a git repo."""
     repo = git_repo["repo"]
     fake_home = git_repo["fake_home"]
-    
+
     # Create global config without default_repo (or with empty default_repo)
     config_dir = fake_home / ".config" / "wt"
     config_dir.mkdir(parents=True)
@@ -431,7 +446,7 @@ def test_cli_works_without_default_repo_from_git_directory(git_repo):
 [branches]
 auto_prefix = ""
 """)
-    
+
     # Should work fine from git repo
     result = run_wt(["status"], repo, fake_home, capture_output=True, text=True, check=True)
     assert "main" in result.stdout
@@ -441,7 +456,7 @@ def test_new_worktree_uses_default_repo(git_repo):
     """Creating new worktree should work when using default_repo."""
     repo = git_repo["repo"]
     fake_home = git_repo["fake_home"]
-    
+
     # Create global config with default_repo
     config_dir = fake_home / ".config" / "wt"
     config_dir.mkdir(parents=True)
@@ -449,16 +464,18 @@ def test_new_worktree_uses_default_repo(git_repo):
 [paths]
 default_repo = "{repo}"
 """)
-    
+
     # Create non-git directory to run from
     non_git_dir = fake_home / "not_a_repo"
     non_git_dir.mkdir()
-    
+
     # Create new worktree from non-git directory - should use default_repo
-    result = run_wt(["new", "feature-from-default"], non_git_dir, fake_home, capture_output=True, text=True)
-    
+    result = run_wt(
+        ["new", "feature-from-default"], non_git_dir, fake_home, capture_output=True, text=True
+    )
+
     assert result.returncode == 0, f"Failed: {result.stderr}"
-    
+
     # Verify worktree was created in default repo
     wt_list = subprocess.run(
         ["git", "worktree", "list"], cwd=repo, capture_output=True, text=True, check=True
@@ -470,14 +487,13 @@ def test_default_repo_with_tilde_expansion(git_repo):
     """CLI should expand ~ in default_repo paths."""
     repo = git_repo["repo"]
     fake_home = git_repo["fake_home"]
-    
+
     # Move repo to fake home to test tilde expansion
     home_repo = fake_home / "my_repo"
-    
+
     # Copy the git repo to fake home (move files and .git)
-    import shutil
     shutil.copytree(repo, home_repo)
-    
+
     # Create global config with tilde path
     config_dir = fake_home / ".config" / "wt"
     config_dir.mkdir(parents=True)
@@ -485,14 +501,14 @@ def test_default_repo_with_tilde_expansion(git_repo):
 [paths]
 default_repo = "~/my_repo"
 """)
-    
+
     # Create non-git directory to run from
     non_git_dir = fake_home / "not_a_repo"
     non_git_dir.mkdir()
-    
+
     # Run status from non-git directory - should expand ~ and use home repo
     result = run_wt(["status"], non_git_dir, fake_home, capture_output=True, text=True, check=True)
-    
+
     # Should succeed and show the home repo's status
     assert "main" in result.stdout
 
@@ -501,10 +517,10 @@ def test_completion_works_with_default_repo(git_repo):
     """Shell completion should work when using default_repo."""
     repo = git_repo["repo"]
     fake_home = git_repo["fake_home"]
-    
+
     # Create a worktree first so completion has something to complete
     run_wt(["new", "completion-test"], repo, fake_home, check=True, capture_output=True)
-    
+
     # Create global config with default_repo
     config_dir = fake_home / ".config" / "wt"
     config_dir.mkdir(parents=True)
@@ -512,15 +528,15 @@ def test_completion_works_with_default_repo(git_repo):
 [paths]
 default_repo = "{repo}"
 """)
-    
+
     # Create non-git directory to run from
     non_git_dir = fake_home / "not_a_repo"
     non_git_dir.mkdir()
-    
+
     # Test that completion function can find worktrees using default_repo
     # We test this by checking if the completion command would succeed
     # (The actual completion testing would require more complex shell integration)
-    
+
     # For now, just verify that wt commands work from non-git directory
     result = run_wt(["list"], non_git_dir, fake_home, capture_output=True, text=True, check=True)
     assert "completion-test" in result.stdout
@@ -530,7 +546,7 @@ def test_doctor_shows_default_repo_setting(git_repo):
     """Doctor command should display default_repo configuration."""
     repo = git_repo["repo"]
     fake_home = git_repo["fake_home"]
-    
+
     # Create global config with default_repo
     config_dir = fake_home / ".config" / "wt"
     config_dir.mkdir(parents=True)
@@ -538,10 +554,10 @@ def test_doctor_shows_default_repo_setting(git_repo):
 [paths]
 default_repo = "{repo}"
 """)
-    
+
     # Run doctor from git repo
     result = run_wt(["doctor"], repo, fake_home, capture_output=True, text=True, check=True)
-    
+
     # Doctor should show the default_repo setting
     assert str(repo) in result.stdout or "default_repo" in result.stdout
 
@@ -550,34 +566,37 @@ def test_completion_function_works_in_git_directory(git_repo):
     """Completion function should work normally when in a git directory."""
     repo = git_repo["repo"]
     fake_home = git_repo["fake_home"]
-    
+
     # Create some worktrees to complete
     run_wt(["new", "feature-one"], repo, fake_home, check=True, capture_output=True)
     run_wt(["new", "feature-two"], repo, fake_home, check=True, capture_output=True)
-    
+
     # Test the completion function directly
-    import sys
-    import os
-    sys.path.insert(0, str(Path("/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt")))
-    
+    sys.path.insert(
+        0,
+        str(
+            Path(
+                "/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt"
+            )
+        ),
+    )
+
     # Set up environment to simulate being in the git repo
-    original_cwd = os.getcwd()
+    original_cwd = Path.cwd()
     original_home = os.environ.get("HOME")
-    
+
     try:
         os.chdir(repo)
         os.environ["HOME"] = str(fake_home)
-        
-        from wt.cli import _complete_worktree_names
-        
+
         branch_names = _complete_worktree_names()
-        
+
         # Should return branch names from worktrees
         assert isinstance(branch_names, list)
         assert "main" in branch_names
         assert "feature-one" in branch_names
         assert "feature-two" in branch_names
-        
+
     finally:
         os.chdir(original_cwd)
         if original_home:
@@ -590,10 +609,10 @@ def test_completion_function_uses_default_repo_from_non_git_directory(git_repo):
     """Completion function should use default_repo when in non-git directory."""
     repo = git_repo["repo"]
     fake_home = git_repo["fake_home"]
-    
+
     # Create some worktrees to complete
     run_wt(["new", "completion-branch"], repo, fake_home, check=True, capture_output=True)
-    
+
     # Create global config with default_repo
     config_dir = fake_home / ".config" / "wt"
     config_dir.mkdir(parents=True)
@@ -601,32 +620,35 @@ def test_completion_function_uses_default_repo_from_non_git_directory(git_repo):
 [paths]
 default_repo = "{repo}"
 """)
-    
+
     # Create non-git directory
     non_git_dir = fake_home / "not_git"
     non_git_dir.mkdir()
-    
+
     # Test completion function from non-git directory
-    import sys
-    import os
-    sys.path.insert(0, str(Path("/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt")))
-    
-    original_cwd = os.getcwd()
+    sys.path.insert(
+        0,
+        str(
+            Path(
+                "/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt"
+            )
+        ),
+    )
+
+    original_cwd = Path.cwd()
     original_home = os.environ.get("HOME")
-    
+
     try:
         os.chdir(non_git_dir)  # Change to non-git directory
         os.environ["HOME"] = str(fake_home)
-        
-        from wt.cli import _complete_worktree_names
-        
+
         branch_names = _complete_worktree_names()
-        
+
         # Should still return branch names using default_repo
         assert isinstance(branch_names, list)
         assert "main" in branch_names
         assert "completion-branch" in branch_names
-        
+
     finally:
         os.chdir(original_cwd)
         if original_home:
@@ -642,7 +664,7 @@ def test_completion_function_handles_missing_default_repo_gracefully():
         fake_home.mkdir()
         non_git_dir = fake_home / "not_git"
         non_git_dir.mkdir()
-        
+
         # No default_repo configured
         config_dir = fake_home / ".config" / "wt"
         config_dir.mkdir(parents=True)
@@ -650,26 +672,29 @@ def test_completion_function_handles_missing_default_repo_gracefully():
 [branches]
 auto_prefix = ""
 """)
-        
-        import sys
-        import os
-        sys.path.insert(0, str(Path("/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt")))
-        
-        original_cwd = os.getcwd()
+
+        sys.path.insert(
+            0,
+            str(
+                Path(
+                    "/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt"
+                )
+            ),
+        )
+
+        original_cwd = Path.cwd()
         original_home = os.environ.get("HOME")
-        
+
         try:
             os.chdir(non_git_dir)
             os.environ["HOME"] = str(fake_home)
-            
-            from wt.cli import _complete_worktree_names
-            
+
             branch_names = _complete_worktree_names()
-            
+
             # Should return empty list gracefully, not crash
             assert isinstance(branch_names, list)
             assert len(branch_names) == 0
-            
+
         finally:
             os.chdir(original_cwd)
             if original_home:
@@ -685,7 +710,7 @@ def test_completion_function_handles_invalid_default_repo_gracefully():
         fake_home.mkdir()
         non_git_dir = fake_home / "not_git"
         non_git_dir.mkdir()
-        
+
         # Configure invalid default_repo
         config_dir = fake_home / ".config" / "wt"
         config_dir.mkdir(parents=True)
@@ -693,26 +718,29 @@ def test_completion_function_handles_invalid_default_repo_gracefully():
 [paths]
 default_repo = "/does/not/exist"
 """)
-        
-        import sys
-        import os
-        sys.path.insert(0, str(Path("/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt")))
-        
-        original_cwd = os.getcwd()
+
+        sys.path.insert(
+            0,
+            str(
+                Path(
+                    "/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt"
+                )
+            ),
+        )
+
+        original_cwd = Path.cwd()
         original_home = os.environ.get("HOME")
-        
+
         try:
             os.chdir(non_git_dir)
             os.environ["HOME"] = str(fake_home)
-            
-            from wt.cli import _complete_worktree_names
-            
+
             branch_names = _complete_worktree_names()
-            
+
             # Should return empty list gracefully, not crash
             assert isinstance(branch_names, list)
             assert len(branch_names) == 0
-            
+
         finally:
             os.chdir(original_cwd)
             if original_home:
@@ -728,20 +756,33 @@ def test_completion_function_filters_origin_prefix():
         fake_home.mkdir()
         repo = fake_home / "test_repo"
         repo.mkdir()
-        
+
         # Set up a git repo with origin/ prefixed branches
         subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
-        subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True, capture_output=True)
-        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Test"], cwd=repo, check=True, capture_output=True
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
         (repo / "README.md").write_text("test")
         subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "initial"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "initial"], cwd=repo, check=True, capture_output=True
+        )
         subprocess.run(["git", "branch", "-M", "main"], cwd=repo, check=True, capture_output=True)
-        
+
         # Create worktrees - these will have local branch names
-        subprocess.run(["git", "worktree", "add", str(repo.parent / "wt1"), "-b", "feature-test"], 
-                      cwd=repo, check=True, capture_output=True)
-        
+        subprocess.run(
+            ["git", "worktree", "add", str(repo.parent / "wt1"), "-b", "feature-test"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+
         # Configure default_repo
         config_dir = fake_home / ".config" / "wt"
         config_dir.mkdir(parents=True)
@@ -749,29 +790,32 @@ def test_completion_function_filters_origin_prefix():
 [paths]
 default_repo = "{repo}"
 """)
-        
-        import sys
-        import os
-        sys.path.insert(0, str(Path("/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt")))
-        
-        original_cwd = os.getcwd()
+
+        sys.path.insert(
+            0,
+            str(
+                Path(
+                    "/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt"
+                )
+            ),
+        )
+
+        original_cwd = Path.cwd()
         original_home = os.environ.get("HOME")
-        
+
         try:
             os.chdir(repo)
             os.environ["HOME"] = str(fake_home)
-            
-            from wt.cli import _complete_worktree_names
-            
+
             branch_names = _complete_worktree_names()
-            
+
             # Should have branch names without origin/ prefix
             assert isinstance(branch_names, list)
             assert "main" in branch_names
             assert "feature-test" in branch_names
             # Should not have origin/ prefixes
             assert not any(name.startswith("origin/") for name in branch_names)
-            
+
         finally:
             os.chdir(original_cwd)
             if original_home:

@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
+import re
 import subprocess
 
 
@@ -53,33 +54,34 @@ def discover_repo_root(start: Path | None = None, default_repo: str | None = Non
         # The parent of the common git directory is the main repo root
         # In a regular repo: .git -> repo_root
         # In a worktree: /path/to/main/repo/.git -> main repo_root
-        return git_common_dir.parent
     except subprocess.CalledProcessError as e:
         # Not in a git repository - try default_repo fallback
-        if default_repo:
-            default_path = Path(default_repo).expanduser().resolve()
-            
-            # Validate that default_repo is actually a git repository
-            try:
-                result = subprocess.run(
-                    ["git", "rev-parse", "--git-common-dir"],
-                    cwd=default_path,
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-                git_common_dir = Path(result.stdout.strip())
-                if not git_common_dir.is_absolute():
-                    git_common_dir = (default_path / git_common_dir).resolve()
-                return git_common_dir.parent
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                raise RepoDiscoveryError(
-                    f"Default repository '{default_repo}' is not a valid git repository"
-                ) from e
-        
-        raise RepoDiscoveryError(f"Not in a git repository: {e.stderr.strip()}") from e
+        if not default_repo:
+            raise RepoDiscoveryError(f"Not in a git repository: {e.stderr.strip()}") from e
+        default_path = Path(default_repo).expanduser().resolve()
+
+        # Validate that default_repo is actually a git repository
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--git-common-dir"],
+                cwd=default_path,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            git_common_dir = Path(result.stdout.strip())
+            if not git_common_dir.is_absolute():
+                git_common_dir = (default_path / git_common_dir).resolve()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            raise RepoDiscoveryError(
+                f"Default repository '{default_repo}' is not a valid git repository"
+            ) from e
+        else:
+            return git_common_dir.parent
     except FileNotFoundError as e:
         raise RepoDiscoveryError("git command not found") from e
+    else:
+        return git_common_dir.parent
 
 
 def default_wt_root(repo_root: Path) -> Path:
@@ -121,8 +123,6 @@ def render_path_template(
     result = template
 
     # Find all $VARNAME patterns
-    import re
-
     pattern = re.compile(r"\$([A-Z_][A-Z0-9_]*)")
 
     def replace_var(match):

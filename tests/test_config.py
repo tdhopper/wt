@@ -3,7 +3,8 @@
 from pathlib import Path
 import tempfile
 
-from wt.config import load_config, merge_configs
+import wt.config
+from wt.config import get_default_config, load_config, merge_configs
 
 
 def test_merge_configs_deep_override():
@@ -46,8 +47,6 @@ auto_prefix = "global/"
 """)
 
         # Load with override
-        import wt.config
-
         orig_func = wt.config.get_global_config_path
 
         def mock_global_path():
@@ -63,10 +62,8 @@ auto_prefix = "global/"
 
 def test_default_config_includes_default_repo():
     """Default config must include default_repo field with empty value."""
-    from wt.config import get_default_config
-    
     default_config = get_default_config()
-    
+
     assert "paths" in default_config
     assert "default_repo" in default_config["paths"]
     assert default_config["paths"]["default_repo"] == ""
@@ -77,20 +74,19 @@ def test_load_config_with_default_repo_setting():
     with tempfile.TemporaryDirectory() as tmpdir:
         global_dir = Path(tmpdir) / "global"
         global_dir.mkdir()
-        
+
         # Create global config with default_repo
         test_repo_path = "/path/to/default/repo"
         (global_dir / "config.toml").write_text(f"""
 [paths]
 default_repo = "{test_repo_path}"
 """)
-        
-        import wt.config
+
         orig_func = wt.config.get_global_config_path
-        
+
         def mock_global_path():
             return global_dir / "config.toml"
-        
+
         wt.config.get_global_config_path = mock_global_path
         try:
             config = load_config(repo_root=None)  # No repo context
@@ -105,7 +101,7 @@ def test_default_repo_merges_correctly():
         repo = Path(tmpdir) / "repo"
         repo.mkdir()
         (repo / ".git").mkdir()
-        
+
         # Create global config with default_repo
         global_dir = Path(tmpdir) / "global"
         global_dir.mkdir()
@@ -114,7 +110,7 @@ def test_default_repo_merges_correctly():
 default_repo = "/global/repo"
 worktree_root = ""
 """)
-        
+
         # Create local config with different default_repo
         wt_dir = repo / ".wt"
         wt_dir.mkdir()
@@ -122,13 +118,12 @@ worktree_root = ""
 [paths]
 default_repo = "/local/repo"
 """)
-        
-        import wt.config
+
         orig_func = wt.config.get_global_config_path
-        
+
         def mock_global_path():
             return global_dir / "config.toml"
-        
+
         wt.config.get_global_config_path = mock_global_path
         try:
             config = load_config(repo_root=repo)
@@ -145,19 +140,18 @@ def test_empty_default_repo_evaluates_to_none():
     with tempfile.TemporaryDirectory() as tmpdir:
         global_dir = Path(tmpdir) / "global"
         global_dir.mkdir()
-        
+
         # Create config with empty default_repo
         (global_dir / "config.toml").write_text("""
 [paths]
 default_repo = ""
 """)
-        
-        import wt.config
+
         orig_func = wt.config.get_global_config_path
-        
+
         def mock_global_path():
             return global_dir / "config.toml"
-        
+
         wt.config.get_global_config_path = mock_global_path
         try:
             config = load_config(repo_root=None)
@@ -169,12 +163,8 @@ default_repo = ""
 
 def test_cli_overrides_default_repo():
     """CLI overrides should be able to override default_repo."""
-    from wt.config import load_config
-    
-    cli_overrides = {
-        "paths": {"default_repo": "/cli/override/repo"}
-    }
-    
+    cli_overrides = {"paths": {"default_repo": "/cli/override/repo"}}
+
     config = load_config(repo_root=None, cli_overrides=cli_overrides)
     assert config["paths"]["default_repo"] == "/cli/override/repo"
 
@@ -184,19 +174,18 @@ def test_default_repo_with_tilde_in_config():
     with tempfile.TemporaryDirectory() as tmpdir:
         global_dir = Path(tmpdir) / "global"
         global_dir.mkdir()
-        
+
         # Create config with tilde path
         (global_dir / "config.toml").write_text("""
 [paths]
 default_repo = "~/my-default-repo"
 """)
-        
-        import wt.config
+
         orig_func = wt.config.get_global_config_path
-        
+
         def mock_global_path():
             return global_dir / "config.toml"
-        
+
         wt.config.get_global_config_path = mock_global_path
         try:
             config = load_config(repo_root=None)
