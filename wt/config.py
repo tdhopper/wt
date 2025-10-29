@@ -11,6 +11,7 @@ def get_default_config() -> dict[str, Any]:
         "paths": {
             "worktree_root": "",
             "worktree_path_template": "$WT_ROOT/$BRANCH_NAME",
+            "default_repo": "",
         },
         "branches": {
             "auto_prefix": "",

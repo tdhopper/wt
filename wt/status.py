@@ -42,6 +42,7 @@ def get_worktree_status(
     is_dirty = gitutil.is_dirty(path)
 
     # Get ahead/behind upstream
+
     behind, ahead = gitutil.count_ahead_behind(path)
 
     # Get behind main
