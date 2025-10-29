@@ -643,10 +643,12 @@ def test_completion_function_works_in_git_directory(git_repo):
     # Set up environment to simulate being in the git repo
     original_cwd = Path.cwd()
     original_home = os.environ.get("HOME")
+    original_userprofile = os.environ.get("USERPROFILE")
 
     try:
         os.chdir(repo)
         os.environ["HOME"] = str(fake_home)
+        os.environ["USERPROFILE"] = str(fake_home)  # For Windows compatibility
 
         branch_names = _complete_worktree_names()
 
@@ -662,6 +664,10 @@ def test_completion_function_works_in_git_directory(git_repo):
             os.environ["HOME"] = original_home
         elif "HOME" in os.environ:
             del os.environ["HOME"]
+        if original_userprofile:
+            os.environ["USERPROFILE"] = original_userprofile
+        elif "USERPROFILE" in os.environ:
+            del os.environ["USERPROFILE"]
 
 
 def test_completion_function_uses_default_repo_from_non_git_directory(git_repo):
@@ -696,10 +702,12 @@ default_repo = "{repo.as_posix()}"
 
     original_cwd = Path.cwd()
     original_home = os.environ.get("HOME")
+    original_userprofile = os.environ.get("USERPROFILE")
 
     try:
         os.chdir(non_git_dir)  # Change to non-git directory
         os.environ["HOME"] = str(fake_home)
+        os.environ["USERPROFILE"] = str(fake_home)  # For Windows compatibility
 
         branch_names = _complete_worktree_names()
 
@@ -714,6 +722,10 @@ default_repo = "{repo.as_posix()}"
             os.environ["HOME"] = original_home
         elif "HOME" in os.environ:
             del os.environ["HOME"]
+        if original_userprofile:
+            os.environ["USERPROFILE"] = original_userprofile
+        elif "USERPROFILE" in os.environ:
+            del os.environ["USERPROFILE"]
 
 
 def test_completion_function_handles_missing_default_repo_gracefully():
@@ -743,10 +755,12 @@ auto_prefix = ""
 
         original_cwd = Path.cwd()
         original_home = os.environ.get("HOME")
+        original_userprofile = os.environ.get("USERPROFILE")
 
         try:
             os.chdir(non_git_dir)
             os.environ["HOME"] = str(fake_home)
+            os.environ["USERPROFILE"] = str(fake_home)  # For Windows compatibility
 
             branch_names = _complete_worktree_names()
 
@@ -760,6 +774,10 @@ auto_prefix = ""
                 os.environ["HOME"] = original_home
             elif "HOME" in os.environ:
                 del os.environ["HOME"]
+            if original_userprofile:
+                os.environ["USERPROFILE"] = original_userprofile
+            elif "USERPROFILE" in os.environ:
+                del os.environ["USERPROFILE"]
 
 
 def test_completion_function_handles_invalid_default_repo_gracefully():
@@ -789,10 +807,12 @@ default_repo = "/does/not/exist"
 
         original_cwd = Path.cwd()
         original_home = os.environ.get("HOME")
+        original_userprofile = os.environ.get("USERPROFILE")
 
         try:
             os.chdir(non_git_dir)
             os.environ["HOME"] = str(fake_home)
+            os.environ["USERPROFILE"] = str(fake_home)  # For Windows compatibility
 
             branch_names = _complete_worktree_names()
 
@@ -806,6 +826,10 @@ default_repo = "/does/not/exist"
                 os.environ["HOME"] = original_home
             elif "HOME" in os.environ:
                 del os.environ["HOME"]
+            if original_userprofile:
+                os.environ["USERPROFILE"] = original_userprofile
+            elif "USERPROFILE" in os.environ:
+                del os.environ["USERPROFILE"]
 
 
 def test_completion_function_filters_origin_prefix():
@@ -867,10 +891,12 @@ default_repo = "{repo.as_posix()}"
 
         original_cwd = Path.cwd()
         original_home = os.environ.get("HOME")
+        original_userprofile = os.environ.get("USERPROFILE")
 
         try:
             os.chdir(repo)
             os.environ["HOME"] = str(fake_home)
+            os.environ["USERPROFILE"] = str(fake_home)  # For Windows compatibility
 
             branch_names = _complete_worktree_names()
 
@@ -887,3 +913,7 @@ default_repo = "{repo.as_posix()}"
                 os.environ["HOME"] = original_home
             elif "HOME" in os.environ:
                 del os.environ["HOME"]
+            if original_userprofile:
+                os.environ["USERPROFILE"] = original_userprofile
+            elif "USERPROFILE" in os.environ:
+                del os.environ["USERPROFILE"]
