@@ -153,12 +153,16 @@ def cmd_new(args, cfg, repo_root):  # noqa: PLR0912, PLR0915
     local_config_path = config.get_local_config_path(repo_root)
     global_config_path = config.get_global_config_path()
 
+    # Get base directories for hook discovery
+    local_wt_dir = local_config_path.parent if local_config_path.parent.exists() else None
+    global_config_dir = global_config_path.parent
+
     try:
         hooks.run_post_create_hooks(
             worktree_path,
             context,
-            local_config_path if local_config_path.exists() else None,
-            global_config_path,
+            local_wt_dir,
+            global_config_dir,
             cfg,
         )
     except hooks.HookError as e:
@@ -511,20 +515,24 @@ def cmd_hooks_list(_args, cfg, repo_root):
     local_config_path = config.get_local_config_path(repo_root)
     global_config_path = config.get_global_config_path()
 
-    # Determine hook directories
-    local_hook_dir = local_config_path.parent / hook_dir_name
-    global_hook_dir = global_config_path.parent / hook_dir_name
+    # Get base directories for hook discovery
+    local_wt_dir = local_config_path.parent if local_config_path.parent.exists() else None
+    global_config_dir = global_config_path.parent
 
-    # Get all hooks (always pass local_config_path, hooks can exist without config file)
+    # Determine hook directories
+    local_hook_dir = local_wt_dir / hook_dir_name if local_wt_dir else None
+    global_hook_dir = global_config_dir / hook_dir_name
+
+    # Get all hooks
     executable_hooks = hooks.discover_hooks(
-        local_config_path,
-        global_config_path,
+        local_wt_dir,
+        global_config_dir,
         hook_dir_name,
     )
 
     non_executable_hooks = hooks.find_non_executable_hooks(
-        local_config_path,
-        global_config_path,
+        local_wt_dir,
+        global_config_dir,
         hook_dir_name,
     )
 
@@ -629,14 +637,16 @@ def cmd_doctor(_args, cfg, repo_root):  # noqa: PLR0912
     # Check hooks
     hook_dir = cfg["hooks"]["post_create_dir"]
 
-    all_hooks = hooks.discover_hooks(
-        local_config if local_config.exists() else None, global_config, hook_dir
-    )
+    # Get base directories for hook discovery
+    local_wt_dir = local_config.parent if local_config.parent.exists() else None
+    global_config_dir = global_config.parent
+
+    all_hooks = hooks.discover_hooks(local_wt_dir, global_config_dir, hook_dir)
 
     if all_hooks:
         # Count local vs global by checking paths
-        local_hook_dir = local_config.parent / hook_dir if local_config.exists() else None
-        global_hook_dir = global_config.parent / hook_dir
+        local_hook_dir = local_wt_dir / hook_dir if local_wt_dir else None
+        global_hook_dir = global_config_dir / hook_dir
 
         local_count = sum(
             1 for h in all_hooks if local_hook_dir and h.is_relative_to(local_hook_dir)
