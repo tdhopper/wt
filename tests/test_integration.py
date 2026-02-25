@@ -310,3 +310,27 @@ def test_new_from_current_errors_with_branch_arg(git_repo):
 
     assert result.returncode != 0, "Should fail when both branch and --from-current provided"
     assert "Cannot specify both" in result.stderr
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Shell hooks require Unix")
+def test_hooks_discovered_without_config_file(git_repo):
+    """Hooks should be discovered even when .wt/config.toml does not exist."""
+    repo = git_repo["repo"]
+    fake_home = git_repo["fake_home"]
+
+    # Create hook directory and script WITHOUT creating config.toml
+    hook_dir = repo / ".wt" / "hooks" / "post_create.d"
+    hook_dir.mkdir(parents=True)
+
+    hook_script = hook_dir / "00-test.sh"
+    hook_script.write_text("#!/bin/bash\necho 'HOOK_RAN_OK'\n")
+    hook_script.chmod(0o755)
+
+    # Verify config.toml does NOT exist
+    assert not (repo / ".wt" / "config.toml").exists()
+
+    # Create a worktree — the hook should run
+    result = run_wt(["new", "hook-test"], repo, fake_home, capture_output=True, text=True)
+
+    assert result.returncode == 0, f"Failed: {result.stderr}"
+    assert "HOOK_RAN_OK" in result.stdout, f"Hook output not found in: {result.stdout}"
