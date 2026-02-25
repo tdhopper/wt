@@ -27,6 +27,7 @@ packages = ["wt"]
 dev = [
     "pytest>=7.0.0",
     "pre-commit>=3.0.0",
+    "shtab>=1.6.0",
 ]
 
 [tool.ruff]

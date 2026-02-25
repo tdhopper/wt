@@ -5,7 +5,14 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 from typing import TextIO
+
+
+if sys.platform != "win32":
+    import fcntl
+else:
+    import ctypes
 
 
 class LockError(Exception):
@@ -93,8 +100,6 @@ class RepoLock:
 
     def _acquire_unix(self) -> None:
         """Acquire lock using fcntl (Unix)."""
-        import fcntl
-
         try:
             fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as e:
@@ -104,8 +109,6 @@ class RepoLock:
 
     def _acquire_windows(self) -> None:
         """Acquire lock using PID file (Windows)."""
-        import time
-
         # Simple PID-based locking for Windows
         pid = os.getpid()
         max_attempts = 50  # 5 seconds with 100ms sleep
@@ -140,8 +143,6 @@ class RepoLock:
 
     def _process_exists_windows(self, pid: int) -> bool:
         """Check if process exists on Windows."""
-        import ctypes
-
         process_query_information = 0x0400
         handle = ctypes.windll.kernel32.OpenProcess(process_query_information, False, pid)
         if handle:
@@ -156,8 +157,6 @@ class RepoLock:
 
         # Release lock
         if sys.platform != "win32":
-            import fcntl
-
             with contextlib.suppress(OSError):
                 fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
 
