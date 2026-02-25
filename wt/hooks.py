@@ -10,15 +10,15 @@ class HookError(Exception):
 
 
 def discover_hooks(
-    local_config_path: Path | None,
-    global_config_path: Path,
+    local_base_dir: Path | None,
+    global_base_dir: Path,
     hook_dir_name: str,
 ) -> list[Path]:
     """Discover hook scripts in local and global directories.
 
     Args:
-        local_config_path: Path to local config file (or None)
-        global_config_path: Path to global config file
+        local_base_dir: Path to local .wt directory (or None)
+        global_base_dir: Path to global config directory (~/.config/wt)
         hook_dir_name: Hook directory name (e.g., "hooks/post_create.d")
 
     Returns:
@@ -27,14 +27,14 @@ def discover_hooks(
     """
     hooks = []
 
-    # Local hooks (check directory exists, not just config file)
-    if local_config_path:
-        local_hook_dir = local_config_path.parent / hook_dir_name
+    # Local hooks
+    if local_base_dir:
+        local_hook_dir = local_base_dir / hook_dir_name
         if local_hook_dir.exists() and local_hook_dir.is_dir():
             hooks.extend(_collect_executable_hooks(local_hook_dir))
 
     # Global hooks
-    global_hook_dir = global_config_path.parent / hook_dir_name
+    global_hook_dir = global_base_dir / hook_dir_name
     if global_hook_dir.exists() and global_hook_dir.is_dir():
         hooks.extend(_collect_executable_hooks(global_hook_dir))
 
@@ -61,15 +61,15 @@ def _collect_executable_hooks(directory: Path) -> list[Path]:
 
 
 def find_non_executable_hooks(
-    local_config_path: Path | None,
-    global_config_path: Path,
+    local_base_dir: Path | None,
+    global_base_dir: Path,
     hook_dir_name: str,
 ) -> list[Path]:
     """Find hook files that exist but are not executable.
 
     Args:
-        local_config_path: Path to local config file (or None)
-        global_config_path: Path to global config file
+        local_base_dir: Path to local .wt directory (or None)
+        global_base_dir: Path to global config directory (~/.config/wt)
         hook_dir_name: Hook directory name (e.g., "hooks/post_create.d")
 
     Returns:
@@ -78,14 +78,14 @@ def find_non_executable_hooks(
     """
     non_executable = []
 
-    # Local hooks (check directory exists, not just config file)
-    if local_config_path:
-        local_hook_dir = local_config_path.parent / hook_dir_name
+    # Local hooks
+    if local_base_dir:
+        local_hook_dir = local_base_dir / hook_dir_name
         if local_hook_dir.exists() and local_hook_dir.is_dir():
             non_executable.extend(_collect_non_executable_hooks(local_hook_dir))
 
     # Global hooks
-    global_hook_dir = global_config_path.parent / hook_dir_name
+    global_hook_dir = global_base_dir / hook_dir_name
     if global_hook_dir.exists() and global_hook_dir.is_dir():
         non_executable.extend(_collect_non_executable_hooks(global_hook_dir))
 
@@ -140,8 +140,8 @@ def build_hook_env(context: dict[str, str]) -> dict[str, str]:
 def run_post_create_hooks(
     worktree_path: Path,
     context: dict[str, str],
-    local_config_path: Path | None,
-    global_config_path: Path,
+    local_base_dir: Path | None,
+    global_base_dir: Path,
     config: dict,
 ) -> None:
     """Run post-create hooks for a new worktree.
@@ -149,8 +149,8 @@ def run_post_create_hooks(
     Args:
         worktree_path: Path to the new worktree
         context: Template context with variables
-        local_config_path: Path to local config (or None)
-        global_config_path: Path to global config
+        local_base_dir: Path to local .wt directory (or None)
+        global_base_dir: Path to global config directory (~/.config/wt)
         config: Full config dictionary
 
     Raises:
@@ -162,13 +162,13 @@ def run_post_create_hooks(
     continue_on_error = config["hooks"]["continue_on_error"]
 
     # Check for non-executable hooks and warn
-    non_executable = find_non_executable_hooks(local_config_path, global_config_path, hook_dir_name)
+    non_executable = find_non_executable_hooks(local_base_dir, global_base_dir, hook_dir_name)
     for hook_path in non_executable:
         print(
             f"Warning: Hook '{hook_path}' is not executable. Run: chmod +x {hook_path}", flush=True
         )
 
-    hooks = discover_hooks(local_config_path, global_config_path, hook_dir_name)
+    hooks = discover_hooks(local_base_dir, global_base_dir, hook_dir_name)
 
     if not hooks:
         return

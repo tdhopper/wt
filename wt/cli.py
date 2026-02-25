@@ -150,15 +150,15 @@ def cmd_new(args, cfg, repo_root):  # noqa: PLR0912, PLR0915
         repo_root, wt_root, git_branch_name, source_branch, worktree_path
     )
 
-    local_config_path = config.get_local_config_path(repo_root)
-    global_config_path = config.get_global_config_path()
+    local_base_dir = config.get_local_base_dir(repo_root)
+    global_base_dir = config.get_global_base_dir()
 
     try:
         hooks.run_post_create_hooks(
             worktree_path,
             context,
-            local_config_path if local_config_path.exists() else None,
-            global_config_path,
+            local_base_dir,
+            global_base_dir,
             cfg,
         )
     except hooks.HookError as e:
@@ -508,23 +508,25 @@ def cmd_hooks_list(_args, cfg, repo_root):
     """List all hooks and their status."""
     hook_dir_name = cfg["hooks"]["post_create_dir"]
 
-    local_config_path = config.get_local_config_path(repo_root)
-    global_config_path = config.get_global_config_path()
+    local_base_dir = config.get_local_base_dir(repo_root)
+    global_base_dir = config.get_global_base_dir()
 
     # Determine hook directories
-    local_hook_dir = local_config_path.parent / hook_dir_name
-    global_hook_dir = global_config_path.parent / hook_dir_name
+    local_hook_dir = (
+        (local_base_dir / hook_dir_name) if local_base_dir else (repo_root / ".wt" / hook_dir_name)
+    )
+    global_hook_dir = global_base_dir / hook_dir_name
 
-    # Get all hooks (always pass local_config_path, hooks can exist without config file)
+    # Get all hooks
     executable_hooks = hooks.discover_hooks(
-        local_config_path,
-        global_config_path,
+        local_base_dir,
+        global_base_dir,
         hook_dir_name,
     )
 
     non_executable_hooks = hooks.find_non_executable_hooks(
-        local_config_path,
-        global_config_path,
+        local_base_dir,
+        global_base_dir,
         hook_dir_name,
     )
 
@@ -629,14 +631,15 @@ def cmd_doctor(_args, cfg, repo_root):  # noqa: PLR0912
     # Check hooks
     hook_dir = cfg["hooks"]["post_create_dir"]
 
-    all_hooks = hooks.discover_hooks(
-        local_config if local_config.exists() else None, global_config, hook_dir
-    )
+    local_base_dir = config.get_local_base_dir(repo_root)
+    global_base_dir = config.get_global_base_dir()
+
+    all_hooks = hooks.discover_hooks(local_base_dir, global_base_dir, hook_dir)
 
     if all_hooks:
         # Count local vs global by checking paths
-        local_hook_dir = local_config.parent / hook_dir if local_config.exists() else None
-        global_hook_dir = global_config.parent / hook_dir
+        local_hook_dir = local_base_dir / hook_dir if local_base_dir else None
+        global_hook_dir = global_base_dir / hook_dir
 
         local_count = sum(
             1 for h in all_hooks if local_hook_dir and h.is_relative_to(local_hook_dir)
@@ -650,9 +653,7 @@ def cmd_doctor(_args, cfg, repo_root):  # noqa: PLR0912
         print("  No hooks configured (optional)")
 
     # Check for non-executable hooks
-    non_executable = hooks.find_non_executable_hooks(
-        local_config if local_config.exists() else None, global_config, hook_dir
-    )
+    non_executable = hooks.find_non_executable_hooks(local_base_dir, global_base_dir, hook_dir)
     if non_executable:
         print(f"✗ Found {len(non_executable)} non-executable hook(s):")
         for hook in non_executable:
