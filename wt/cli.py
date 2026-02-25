@@ -703,8 +703,8 @@ def main():  # noqa: PLR0915, PLR0912
     parser_new.add_argument("--track", action="store_true", help="Set upstream tracking")
     parser_new.add_argument("--force", action="store_true", help="Force creation, remove empty dir")
 
-    # list
-    parser_list = subparsers.add_parser("list", help="List all worktrees")
+    # list command with ls alias
+    parser_list = subparsers.add_parser("list", aliases=["ls"], help="List all worktrees")
     parser_list.add_argument("--json", action="store_true", help="Output as JSON")
 
     # status
@@ -714,8 +714,8 @@ def main():  # noqa: PLR0915, PLR0912
         "--rich", action="store_true", default=None, help="Use rich formatting"
     )
 
-    # rm
-    parser_rm = subparsers.add_parser("rm", help="Remove a worktree")
+    # remove command with rm alias
+    parser_rm = subparsers.add_parser("remove", aliases=["rm"], help="Remove a worktree")
     parser_rm.add_argument("branch", help="Branch name")
     parser_rm.add_argument("--yes", action="store_true", help="Skip confirmation")
     parser_rm.add_argument("--delete-branch", action="store_true", help="Also delete the branch")
@@ -798,11 +798,11 @@ def main():  # noqa: PLR0915, PLR0912
         # Dispatch command
         if args.command == "new":
             cmd_new(args, cfg, repo_root)
-        elif args.command == "list":
+        elif args.command in ("list", "ls"):
             cmd_list(args, cfg, repo_root)
         elif args.command == "status":
             cmd_status(args, cfg, repo_root)
-        elif args.command == "rm":
+        elif args.command in ("remove", "rm"):
             cmd_rm(args, cfg, repo_root)
         elif args.command == "prune-merged":
             cmd_prune_merged(args, cfg, repo_root)
