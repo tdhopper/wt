@@ -71,6 +71,17 @@ def get_local_config_path(repo_root: Path) -> Path:
     return repo_root / ".wt" / "config.toml"
 
 
+def get_local_base_dir(repo_root: Path) -> Path | None:
+    """Return path to local .wt directory if it exists, else None."""
+    base = repo_root / ".wt"
+    return base if base.exists() else None
+
+
+def get_global_base_dir() -> Path:
+    """Return path to global config directory (~/.config/wt)."""
+    return Path.home() / ".config" / "wt"
+
+
 def load_config(
     repo_root: Path | None, cli_overrides: dict[str, Any] | None = None
 ) -> dict[str, Any]:
