@@ -34,8 +34,9 @@ def _complete_worktree_names():
                 if branch.startswith("origin/"):
                     branch = branch[7:]
                 branch_names.append(branch)
-    except Exception:
-        # If anything goes wrong, return empty list
+    except Exception as exc:
+        if os.environ.get("WT_DEBUG"):
+            print(f"wt completion error: {exc}", file=sys.stderr)
         return []
     else:
         return branch_names
@@ -47,6 +48,131 @@ _WORKTREE_COMPLETION = {
     "zsh": "_shtab_complete_worktrees",
     "tcsh": "C",
 }
+
+
+def _build_parser(for_completion=False):
+    """Build the argument parser.
+
+    Args:
+        for_completion: If True, adds shtab completion attributes on branch args
+                        for rm/where/open commands. If False, includes -v/--verbose
+                        and uses nargs="?" for new's branch arg (for --from-current).
+
+    """
+    parser = argparse.ArgumentParser(
+        description="wt - Zero-friction git worktree manager",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    parser.add_argument("--repo", type=Path, help="Repository path (default: auto-discover)")
+    parser.add_argument("--config", type=Path, help="Config file override")
+    if not for_completion:
+        parser.add_argument(
+            "-v", "--verbose", action="store_true", help="Print git commands as they are executed"
+        )
+
+    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+
+    # new
+    parser_new = subparsers.add_parser("new", help="Create a new worktree")
+    if for_completion:
+        parser_new.add_argument("branch", help="Branch name")
+    else:
+        parser_new.add_argument("branch", nargs="?", help="Branch name")
+    parser_new.add_argument(
+        "--from",
+        dest="from_branch",
+        default=None,
+        help="Source branch (default: origin/main or configured base)",
+    )
+    if not for_completion:
+        parser_new.add_argument(
+            "--from-current",
+            action="store_true",
+            help="Move current branch to a new worktree",
+        )
+    parser_new.add_argument("--track", action="store_true", help="Set upstream tracking")
+    parser_new.add_argument("--force", action="store_true", help="Force creation, remove empty dir")
+
+    # list command with ls alias
+    parser_list = subparsers.add_parser("list", aliases=["ls"], help="List all worktrees")
+    parser_list.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # status
+    parser_status = subparsers.add_parser("status", help="Show worktree status")
+    parser_status.add_argument("--json", action="store_true", help="Output as JSON")
+    parser_status.add_argument(
+        "--rich", action="store_true", default=None, help="Use rich formatting"
+    )
+
+    # remove command with rm alias
+    parser_rm = subparsers.add_parser("remove", aliases=["rm"], help="Remove a worktree")
+    rm_branch_arg = parser_rm.add_argument("branch", help="Branch name")
+    if for_completion:
+        rm_branch_arg.complete = _WORKTREE_COMPLETION
+    parser_rm.add_argument("--yes", action="store_true", help="Skip confirmation")
+    parser_rm.add_argument("--delete-branch", action="store_true", help="Also delete the branch")
+    parser_rm.add_argument("--force", action="store_true", help="Force deletion")
+
+    # prune-merged
+    parser_prune = subparsers.add_parser("prune-merged", help="Prune merged branches")
+    parser_prune.add_argument("--base", help="Base branch (default: from config)")
+    parser_prune.add_argument(
+        "--protected", nargs="*", help="Protected branches (default: from config)"
+    )
+    parser_prune.add_argument("--yes", action="store_true", help="Skip confirmation")
+    parser_prune.add_argument("--delete-branch", action="store_true", help="Also delete branches")
+
+    # pull-main
+    parser_pull = subparsers.add_parser("pull-main", help="Update all worktrees from main")
+    parser_pull.add_argument("--base", help="Base branch (default: from config)")
+    parser_pull.add_argument(
+        "--strategy", choices=["rebase", "merge", "ff-only"], help="Update strategy"
+    )
+    parser_pull.add_argument("--stash", action="store_true", help="Auto-stash dirty trees")
+
+    # where
+    parser_where = subparsers.add_parser("where", help="Print worktree path")
+    where_branch_arg = parser_where.add_argument("branch", help="Branch name")
+    if for_completion:
+        where_branch_arg.complete = _WORKTREE_COMPLETION
+
+    # open
+    parser_open = subparsers.add_parser("open", help="Print worktree path (alias for where)")
+    open_branch_arg = parser_open.add_argument("branch", help="Branch name")
+    if for_completion:
+        open_branch_arg.complete = _WORKTREE_COMPLETION
+
+    # gc
+    subparsers.add_parser("gc", help="Clean up stale worktrees")
+
+    # doctor
+    subparsers.add_parser("doctor", help="Check configuration")
+
+    # completion
+    parser_completion = subparsers.add_parser("completion", help="Generate shell completions")
+    parser_completion.add_argument("shell", choices=["bash", "zsh", "tcsh"], help="Shell type")
+
+    # hooks
+    parser_hooks = subparsers.add_parser("hooks", help="Manage hooks")
+    hooks_subparsers = parser_hooks.add_subparsers(dest="hooks_command", help="Hooks command")
+
+    # hooks init
+    parser_hooks_init = hooks_subparsers.add_parser("init", help="Initialize hooks directory")
+    parser_hooks_init.add_argument(
+        "--local", action="store_true", help="Create local hooks directory"
+    )
+    parser_hooks_init.add_argument(
+        "--template", action="store_true", help="Create example template hook"
+    )
+    parser_hooks_init.add_argument(
+        "--force", action="store_true", help="Overwrite existing template"
+    )
+
+    # hooks list
+    hooks_subparsers.add_parser("list", help="List all hooks and their status")
+
+    return parser
 
 
 def cmd_new(args, cfg, repo_root):  # noqa: PLR0912, PLR0915
@@ -628,102 +754,8 @@ def cmd_completion(args, _cfg, _repo_root):
         print("Install with: pip install shtab", file=sys.stderr)
         sys.exit(1)
 
-    # Create a parser with the same structure as main()
-    parser = argparse.ArgumentParser(
-        description="wt - Zero-friction git worktree manager",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    parser = _build_parser(for_completion=True)
 
-    parser.add_argument("--repo", type=Path, help="Repository path (default: auto-discover)")
-    parser.add_argument("--config", type=Path, help="Config file override")
-
-    subparsers = parser.add_subparsers(dest="command", help="Command to run")
-
-    # new
-    parser_new = subparsers.add_parser("new", help="Create a new worktree")
-    parser_new.add_argument("branch", help="Branch name")
-    parser_new.add_argument(
-        "--from", dest="from_branch", default=None, help="Source branch (default: from config)"
-    )
-    parser_new.add_argument("--track", action="store_true", help="Set upstream tracking")
-    parser_new.add_argument("--force", action="store_true", help="Force creation, remove empty dir")
-
-    # list
-    parser_list = subparsers.add_parser("list", help="List all worktrees")
-    parser_list.add_argument("--json", action="store_true", help="Output as JSON")
-
-    # status
-    parser_status = subparsers.add_parser("status", help="Show worktree status")
-    parser_status.add_argument("--json", action="store_true", help="Output as JSON")
-    parser_status.add_argument(
-        "--rich", action="store_true", default=None, help="Use rich formatting"
-    )
-
-    # rm
-    parser_rm = subparsers.add_parser("rm", help="Remove a worktree")
-    rm_branch_arg = parser_rm.add_argument("branch", help="Branch name")
-    rm_branch_arg.complete = _WORKTREE_COMPLETION
-    parser_rm.add_argument("--yes", action="store_true", help="Skip confirmation")
-    parser_rm.add_argument("--delete-branch", action="store_true", help="Also delete the branch")
-    parser_rm.add_argument("--force", action="store_true", help="Force deletion")
-
-    # prune-merged
-    parser_prune = subparsers.add_parser("prune-merged", help="Prune merged branches")
-    parser_prune.add_argument("--base", help="Base branch (default: from config)")
-    parser_prune.add_argument(
-        "--protected", nargs="*", help="Protected branches (default: from config)"
-    )
-    parser_prune.add_argument("--yes", action="store_true", help="Skip confirmation")
-    parser_prune.add_argument("--delete-branch", action="store_true", help="Also delete branches")
-
-    # pull-main
-    parser_pull = subparsers.add_parser("pull-main", help="Update all worktrees from main")
-    parser_pull.add_argument("--base", help="Base branch (default: from config)")
-    parser_pull.add_argument(
-        "--strategy", choices=["rebase", "merge", "ff-only"], help="Update strategy"
-    )
-    parser_pull.add_argument("--stash", action="store_true", help="Auto-stash dirty trees")
-
-    # where
-    parser_where = subparsers.add_parser("where", help="Print worktree path")
-    where_branch_arg = parser_where.add_argument("branch", help="Branch name")
-    where_branch_arg.complete = _WORKTREE_COMPLETION
-
-    # open
-    parser_open = subparsers.add_parser("open", help="Print worktree path (alias for where)")
-    open_branch_arg = parser_open.add_argument("branch", help="Branch name")
-    open_branch_arg.complete = _WORKTREE_COMPLETION
-
-    # gc
-    subparsers.add_parser("gc", help="Clean up stale worktrees")
-
-    # doctor
-    subparsers.add_parser("doctor", help="Check configuration")
-
-    # completion
-    parser_completion = subparsers.add_parser("completion", help="Generate shell completions")
-    parser_completion.add_argument("shell", choices=["bash", "zsh", "tcsh"], help="Shell type")
-
-    # hooks
-    parser_hooks = subparsers.add_parser("hooks", help="Manage hooks")
-    hooks_subparsers = parser_hooks.add_subparsers(dest="hooks_command", help="Hooks command")
-
-    # hooks init
-    parser_hooks_init = hooks_subparsers.add_parser("init", help="Initialize hooks directory")
-    parser_hooks_init.add_argument(
-        "--local", action="store_true", help="Create local hooks directory"
-    )
-    parser_hooks_init.add_argument(
-        "--template", action="store_true", help="Create example template hook"
-    )
-    parser_hooks_init.add_argument(
-        "--force", action="store_true", help="Overwrite existing template"
-    )
-
-    # hooks list
-    hooks_subparsers.add_parser("list", help="List all hooks and their status")
-
-    # Generate and print completion script
     # Define custom choice functions for shtab
     choice_functions = {
         "_shtab_complete_worktrees": _complete_worktree_names,
@@ -736,7 +768,6 @@ def cmd_completion(args, _cfg, _repo_root):
         custom_function = """
 _shtab_complete_worktrees() {
     local python_script="
-import sys; sys.path.insert(0, '.')
 try:
     from wt.cli import _complete_worktree_names
     branches = _complete_worktree_names()
@@ -754,7 +785,6 @@ except:
         custom_function = """
 _shtab_complete_worktrees() {
     local python_script="
-import sys; sys.path.insert(0, '.')
 try:
     from wt.cli import _complete_worktree_names
     branches = _complete_worktree_names()
@@ -864,111 +894,9 @@ def cmd_doctor(_args, cfg, repo_root):  # noqa: PLR0912
         print("All checks passed ✓")
 
 
-def main():  # noqa: PLR0915, PLR0912
+def main():  # noqa: PLR0912
     """CLI entry point."""
-    parser = argparse.ArgumentParser(
-        description="wt - Zero-friction git worktree manager",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-
-    parser.add_argument("--repo", type=Path, help="Repository path (default: auto-discover)")
-    parser.add_argument("--config", type=Path, help="Config file override")
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Print git commands as they are executed"
-    )
-
-    subparsers = parser.add_subparsers(dest="command", help="Command to run")
-
-    # new
-    parser_new = subparsers.add_parser("new", help="Create a new worktree")
-    parser_new.add_argument("branch", nargs="?", help="Branch name")
-    parser_new.add_argument(
-        "--from",
-        dest="from_branch",
-        default=None,
-        help="Source branch (default: origin/main or configured base)",
-    )
-    parser_new.add_argument(
-        "--from-current",
-        action="store_true",
-        help="Move current branch to a new worktree",
-    )
-    parser_new.add_argument("--track", action="store_true", help="Set upstream tracking")
-    parser_new.add_argument("--force", action="store_true", help="Force creation, remove empty dir")
-
-    # list command with ls alias
-    parser_list = subparsers.add_parser("list", aliases=["ls"], help="List all worktrees")
-    parser_list.add_argument("--json", action="store_true", help="Output as JSON")
-
-    # status
-    parser_status = subparsers.add_parser("status", help="Show worktree status")
-    parser_status.add_argument("--json", action="store_true", help="Output as JSON")
-    parser_status.add_argument(
-        "--rich", action="store_true", default=None, help="Use rich formatting"
-    )
-
-    # remove command with rm alias
-    parser_rm = subparsers.add_parser("remove", aliases=["rm"], help="Remove a worktree")
-    parser_rm.add_argument("branch", help="Branch name")
-    parser_rm.add_argument("--yes", action="store_true", help="Skip confirmation")
-    parser_rm.add_argument("--delete-branch", action="store_true", help="Also delete the branch")
-    parser_rm.add_argument("--force", action="store_true", help="Force deletion")
-
-    # prune-merged
-    parser_prune = subparsers.add_parser("prune-merged", help="Prune merged branches")
-    parser_prune.add_argument("--base", help="Base branch (default: from config)")
-    parser_prune.add_argument(
-        "--protected", nargs="*", help="Protected branches (default: from config)"
-    )
-    parser_prune.add_argument("--yes", action="store_true", help="Skip confirmation")
-    parser_prune.add_argument("--delete-branch", action="store_true", help="Also delete branches")
-
-    # pull-main
-    parser_pull = subparsers.add_parser("pull-main", help="Update all worktrees from main")
-    parser_pull.add_argument("--base", help="Base branch (default: from config)")
-    parser_pull.add_argument(
-        "--strategy", choices=["rebase", "merge", "ff-only"], help="Update strategy"
-    )
-    parser_pull.add_argument("--stash", action="store_true", help="Auto-stash dirty trees")
-
-    # where
-    parser_where = subparsers.add_parser("where", help="Print worktree path")
-    parser_where.add_argument("branch", help="Branch name")
-
-    # open
-    parser_open = subparsers.add_parser("open", help="Print worktree path (alias for where)")
-    parser_open.add_argument("branch", help="Branch name")
-
-    # gc
-    subparsers.add_parser("gc", help="Clean up stale worktrees")
-
-    # doctor
-    subparsers.add_parser("doctor", help="Check configuration")
-
-    # completion
-    if SHTAB_AVAILABLE:
-        parser_completion = subparsers.add_parser("completion", help="Generate shell completions")
-        parser_completion.add_argument("shell", choices=["bash", "zsh", "tcsh"], help="Shell type")
-
-    # hooks
-    parser_hooks = subparsers.add_parser("hooks", help="Manage hooks")
-    hooks_subparsers = parser_hooks.add_subparsers(dest="hooks_command", help="Hooks command")
-
-    # hooks init
-    parser_hooks_init = hooks_subparsers.add_parser("init", help="Initialize hooks directory")
-    parser_hooks_init.add_argument(
-        "--local", action="store_true", help="Create local hooks directory"
-    )
-    parser_hooks_init.add_argument(
-        "--template", action="store_true", help="Create example template hook"
-    )
-    parser_hooks_init.add_argument(
-        "--force", action="store_true", help="Overwrite existing template"
-    )
-
-    # hooks list
-    hooks_subparsers.add_parser("list", help="List all hooks and their status")
-
+    parser = _build_parser(for_completion=False)
     args = parser.parse_args()
 
     if not args.command:
@@ -979,8 +907,9 @@ def main():  # noqa: PLR0915, PLR0912
     if args.verbose:
         gitutil.set_verbose(True)
 
-    # Load minimal config to get default_repo setting for discovery
-    # (we load full config again after repo discovery)
+    # Load config once without repo_root to read default_repo for discovery,
+    # then again after discovery to pick up repo-local config. Two loads are
+    # intentional: the first must happen before we know repo_root.
     minimal_cfg = config.load_config(repo_root=None)
     default_repo = minimal_cfg["paths"]["default_repo"] or None
 
