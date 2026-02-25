@@ -633,7 +633,7 @@ default_repo = "{repo.as_posix()}"
     assert str(repo) in result.stdout or "default_repo" in result.stdout
 
 
-def test_completion_function_works_in_git_directory(git_repo):
+def test_completion_function_works_in_git_directory(git_repo, monkeypatch):
     """Completion function should work normally when in a git directory."""
     repo = git_repo["repo"]
     fake_home = git_repo["fake_home"]
@@ -642,47 +642,21 @@ def test_completion_function_works_in_git_directory(git_repo):
     run_wt(["new", "feature-one"], repo, fake_home, check=True, capture_output=True)
     run_wt(["new", "feature-two"], repo, fake_home, check=True, capture_output=True)
 
-    # Test the completion function directly
-    sys.path.insert(
-        0,
-        str(
-            Path(
-                "/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt"
-            )
-        ),
-    )
-
     # Set up environment to simulate being in the git repo
-    original_cwd = Path.cwd()
-    original_home = os.environ.get("HOME")
-    original_userprofile = os.environ.get("USERPROFILE")
+    monkeypatch.chdir(repo)
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.setenv("USERPROFILE", str(fake_home))
 
-    try:
-        os.chdir(repo)
-        os.environ["HOME"] = str(fake_home)
-        os.environ["USERPROFILE"] = str(fake_home)  # For Windows compatibility
+    branch_names = _complete_worktree_names()
 
-        branch_names = _complete_worktree_names()
-
-        # Should return branch names from worktrees
-        assert isinstance(branch_names, list)
-        assert "main" in branch_names
-        assert "feature-one" in branch_names
-        assert "feature-two" in branch_names
-
-    finally:
-        os.chdir(original_cwd)
-        if original_home:
-            os.environ["HOME"] = original_home
-        elif "HOME" in os.environ:
-            del os.environ["HOME"]
-        if original_userprofile:
-            os.environ["USERPROFILE"] = original_userprofile
-        elif "USERPROFILE" in os.environ:
-            del os.environ["USERPROFILE"]
+    # Should return branch names from worktrees
+    assert isinstance(branch_names, list)
+    assert "main" in branch_names
+    assert "feature-one" in branch_names
+    assert "feature-two" in branch_names
 
 
-def test_completion_function_uses_default_repo_from_non_git_directory(git_repo):
+def test_completion_function_uses_default_repo_from_non_git_directory(git_repo, monkeypatch):
     """Completion function should use default_repo when in non-git directory."""
     repo = git_repo["repo"]
     fake_home = git_repo["fake_home"]
@@ -703,44 +677,19 @@ default_repo = "{repo.as_posix()}"
     non_git_dir.mkdir()
 
     # Test completion function from non-git directory
-    sys.path.insert(
-        0,
-        str(
-            Path(
-                "/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt"
-            )
-        ),
-    )
+    monkeypatch.chdir(non_git_dir)
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.setenv("USERPROFILE", str(fake_home))
 
-    original_cwd = Path.cwd()
-    original_home = os.environ.get("HOME")
-    original_userprofile = os.environ.get("USERPROFILE")
+    branch_names = _complete_worktree_names()
 
-    try:
-        os.chdir(non_git_dir)  # Change to non-git directory
-        os.environ["HOME"] = str(fake_home)
-        os.environ["USERPROFILE"] = str(fake_home)  # For Windows compatibility
-
-        branch_names = _complete_worktree_names()
-
-        # Should still return branch names using default_repo
-        assert isinstance(branch_names, list)
-        assert "main" in branch_names
-        assert "completion-branch" in branch_names
-
-    finally:
-        os.chdir(original_cwd)
-        if original_home:
-            os.environ["HOME"] = original_home
-        elif "HOME" in os.environ:
-            del os.environ["HOME"]
-        if original_userprofile:
-            os.environ["USERPROFILE"] = original_userprofile
-        elif "USERPROFILE" in os.environ:
-            del os.environ["USERPROFILE"]
+    # Should still return branch names using default_repo
+    assert isinstance(branch_names, list)
+    assert "main" in branch_names
+    assert "completion-branch" in branch_names
 
 
-def test_completion_function_handles_missing_default_repo_gracefully():
+def test_completion_function_handles_missing_default_repo_gracefully(monkeypatch):
     """Completion function should return empty list when no repo found."""
     with tempfile.TemporaryDirectory() as tmpdir:
         fake_home = Path(tmpdir) / "home"
@@ -756,43 +705,18 @@ def test_completion_function_handles_missing_default_repo_gracefully():
 auto_prefix = ""
 """)
 
-        sys.path.insert(
-            0,
-            str(
-                Path(
-                    "/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt"
-                )
-            ),
-        )
+        monkeypatch.chdir(non_git_dir)
+        monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.setenv("USERPROFILE", str(fake_home))
 
-        original_cwd = Path.cwd()
-        original_home = os.environ.get("HOME")
-        original_userprofile = os.environ.get("USERPROFILE")
+        branch_names = _complete_worktree_names()
 
-        try:
-            os.chdir(non_git_dir)
-            os.environ["HOME"] = str(fake_home)
-            os.environ["USERPROFILE"] = str(fake_home)  # For Windows compatibility
-
-            branch_names = _complete_worktree_names()
-
-            # Should return empty list gracefully, not crash
-            assert isinstance(branch_names, list)
-            assert len(branch_names) == 0
-
-        finally:
-            os.chdir(original_cwd)
-            if original_home:
-                os.environ["HOME"] = original_home
-            elif "HOME" in os.environ:
-                del os.environ["HOME"]
-            if original_userprofile:
-                os.environ["USERPROFILE"] = original_userprofile
-            elif "USERPROFILE" in os.environ:
-                del os.environ["USERPROFILE"]
+        # Should return empty list gracefully, not crash
+        assert isinstance(branch_names, list)
+        assert len(branch_names) == 0
 
 
-def test_completion_function_handles_invalid_default_repo_gracefully():
+def test_completion_function_handles_invalid_default_repo_gracefully(monkeypatch):
     """Completion function should handle invalid default_repo gracefully."""
     with tempfile.TemporaryDirectory() as tmpdir:
         fake_home = Path(tmpdir) / "home"
@@ -808,43 +732,18 @@ def test_completion_function_handles_invalid_default_repo_gracefully():
 default_repo = "/does/not/exist"
 """)
 
-        sys.path.insert(
-            0,
-            str(
-                Path(
-                    "/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt"
-                )
-            ),
-        )
+        monkeypatch.chdir(non_git_dir)
+        monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.setenv("USERPROFILE", str(fake_home))
 
-        original_cwd = Path.cwd()
-        original_home = os.environ.get("HOME")
-        original_userprofile = os.environ.get("USERPROFILE")
+        branch_names = _complete_worktree_names()
 
-        try:
-            os.chdir(non_git_dir)
-            os.environ["HOME"] = str(fake_home)
-            os.environ["USERPROFILE"] = str(fake_home)  # For Windows compatibility
-
-            branch_names = _complete_worktree_names()
-
-            # Should return empty list gracefully, not crash
-            assert isinstance(branch_names, list)
-            assert len(branch_names) == 0
-
-        finally:
-            os.chdir(original_cwd)
-            if original_home:
-                os.environ["HOME"] = original_home
-            elif "HOME" in os.environ:
-                del os.environ["HOME"]
-            if original_userprofile:
-                os.environ["USERPROFILE"] = original_userprofile
-            elif "USERPROFILE" in os.environ:
-                del os.environ["USERPROFILE"]
+        # Should return empty list gracefully, not crash
+        assert isinstance(branch_names, list)
+        assert len(branch_names) == 0
 
 
-def test_completion_function_filters_origin_prefix():
+def test_completion_function_filters_origin_prefix(monkeypatch):
     """Completion function should remove 'origin/' prefix from branch names."""
     with tempfile.TemporaryDirectory() as tmpdir:
         fake_home = Path(tmpdir) / "home"
@@ -892,40 +791,15 @@ def test_completion_function_filters_origin_prefix():
 default_repo = "{repo.as_posix()}"
 """)
 
-        sys.path.insert(
-            0,
-            str(
-                Path(
-                    "/private/var/folders/xn/45d91fgd0f18hg7q88yqmgl40000gn/T/fleet-4dcb3ypngv3nu3ojatzn/wt"
-                )
-            ),
-        )
+        monkeypatch.chdir(repo)
+        monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.setenv("USERPROFILE", str(fake_home))
 
-        original_cwd = Path.cwd()
-        original_home = os.environ.get("HOME")
-        original_userprofile = os.environ.get("USERPROFILE")
+        branch_names = _complete_worktree_names()
 
-        try:
-            os.chdir(repo)
-            os.environ["HOME"] = str(fake_home)
-            os.environ["USERPROFILE"] = str(fake_home)  # For Windows compatibility
-
-            branch_names = _complete_worktree_names()
-
-            # Should have branch names without origin/ prefix
-            assert isinstance(branch_names, list)
-            assert "main" in branch_names
-            assert "feature-test" in branch_names
-            # Should not have origin/ prefixes
-            assert not any(name.startswith("origin/") for name in branch_names)
-
-        finally:
-            os.chdir(original_cwd)
-            if original_home:
-                os.environ["HOME"] = original_home
-            elif "HOME" in os.environ:
-                del os.environ["HOME"]
-            if original_userprofile:
-                os.environ["USERPROFILE"] = original_userprofile
-            elif "USERPROFILE" in os.environ:
-                del os.environ["USERPROFILE"]
+        # Should have branch names without origin/ prefix
+        assert isinstance(branch_names, list)
+        assert "main" in branch_names
+        assert "feature-test" in branch_names
+        # Should not have origin/ prefixes
+        assert not any(name.startswith("origin/") for name in branch_names)
